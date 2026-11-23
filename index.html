@@ -133,6 +133,16 @@ button.pri{background:linear-gradient(135deg,#4f46e5,#0ea5e9);border-color:trans
   <div id="viewJobs" hidden>
     <div class="stats" id="jstats"></div>
     <div class="bar"><input id="jq" placeholder="Hledat firmu, pozici…"><select id="js"><option value="">Aktivní</option><option value="new">Jen nové</option><option value="todo">Neodpovězené</option><option value="app">Odpovězené</option><option value="hid">Skryté</option></select><select id="jp"><option value="">Všechny portály</option><option value="jobs">jobs.cz</option><option value="linkedin">LinkedIn</option></select></div>
+    <details style="margin:0 0 10px;padding:10px 12px;border:1px solid var(--line,#d0d5dd);border-radius:10px;font-size:14px"><summary style="cursor:pointer;font-weight:600">Jak odpovědět na inzerát (motivační dopis)</summary>
+    <ol style="margin:8px 0 0;padding-left:20px;line-height:1.5">
+      <li>U inzerátu klepni na <b>Odpověď</b>. Zadání se zkopíruje do schránky.</li>
+      <li>Dole klepni na <b>Otevřít projekt v Claude</b>. Otevře se projekt Hledání práce.</li>
+      <li>V projektu začni <b>nový chat</b> a do pole zadání <b>vlož</b> (podrž prst v poli a zvol Vložit). Odešli.</li>
+      <li>Claude si přečte inzerát, napíše dopis podle tvého CV a v Gmailu vytvoří <b>koncept</b> s oběma CV (české i anglické).</li>
+      <li>Otevři Gmail, koncept zkontroluj, doplň příjemce a odešli ho sám. Claude nic neodesílá.</li>
+      <li>Potom v aplikaci zaškrtni <b>Odpověděl jsem</b>, aby se inzerát zbarvil.</li>
+    </ol>
+    <div style="margin-top:8px;color:var(--mut)">Když se zadání nevloží, zkopíruj z inzerátu název, firmu a odkaz a napiš do chatu: „Připrav odpověď na tento inzerát a vytvoř koncept v Gmailu."</div></details>
     <div class="bar"><button id="jSeen">Označit vše jako viděné</button><button id="jAdd">+ Přidat odkaz</button></div>
     <div id="jobsBody"></div>
     <div class="note" id="jinfo"></div>
