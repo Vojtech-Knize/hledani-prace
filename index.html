@@ -416,8 +416,8 @@ function jobCard(j){
   return `<div class="item job ${ap?'j-app':''} ${nw&&!ap?'j-new':''}">
   <div class="top"><div><div class="name">${esc(j.title)}</div><div class="pos">${esc(j.company)}${j.loc?' · '+esc(j.loc):''}</div></div>
   <span class="tag ${ap?'ok':nw?'new':'g'}">${ap?'Odpovězeno':nw?'Nové':'Viděno'}</span></div>
-  <div class="tags"><span class="tag ${j.src==='linkedin'?'src-l':'g'}">${SRC[j.src]||'Jiný portál'}</span>${j.salary?`<span class="tag">${esc(j.salary)}</span>`:'<span class="tag g">plat neuveden</span>'}${wm?`<span class="tag ${wm[1]}">${wm[0]}</span>`:''}${ap?`<span class="tag ok">odpovězeno ${fmtD(ap)}</span>`:''}</div>
-  ${j.note?`<div class="rows"><div><i>Poznámka:</i> ${esc(j.note)}</div></div>`:''}
+  <div class="tags"><span class="tag ${j.src==='linkedin'?'src-l':'g'}">${SRC[j.src]||'Jiný portál'}</span>${j.salary?`<span class="tag">${esc(j.salary)}</span>`:'<span class="tag g">plat neuveden</span>'}${j.fit?`<span class="tag ${j.fit==='A'?'ok':j.fit==='B'?'new':'g'}" title="${esc(j.why||'')}">Shoda ${j.fit}</span>`:''}${wm?`<span class="tag ${wm[1]}">${wm[0]}</span>`:''}${ap?`<span class="tag ok">odpovězeno ${fmtD(ap)}</span>`:''}</div>
+  ${j.why?`<div class="rows"><div><i>Proč:</i> ${esc(j.why)}</div></div>`:''}${j.note?`<div class="rows"><div><i>Poznámka:</i> ${esc(j.note)}</div></div>`:''}
   <div class="act"><a class="lnk" href="${esc(j.url)}" target="_blank" rel="noopener" data-open="${esc(j.id)}">Otevřít inzerát</a>
   <label class="ck"><input type="checkbox" data-ap="${esc(j.id)}"${ap?' checked':''}> Odpověděl jsem</label>
   <button data-adopt="${esc(j.id)}">Do oslovení</button><button data-hide="${esc(j.id)}">${S.hid[j.id]?'Vrátit':'Skrýt'}</button></div></div>`;
@@ -445,7 +445,7 @@ function renderJobs(){
     const days={};list.forEach(j=>{(days[j.first||'']=days[j.first||'']||[]).push(j)});
     box.innerHTML=Object.keys(days).sort().reverse().map(d=>{
       const g=days[d],na=g.filter(j=>S.applied[j.id]).length;
-      return `<div class="dh"><b>${d===today?'Dnes · ':''}${d?fmtD(d):'Bez data'}</b><span>${g.length} inzerátů · ${na} odpovězeno</span></div>`+g.map(jobCard).join('');
+      return `<div class="dh"><b>${d===today?'Dnes · ':''}${d?fmtD(d):'Bez data'}</b><span>${g.length} inzerátů · ${na} odpovězeno</span></div>`+g.slice().sort((x,y)=>(x.fit||'Z').localeCompare(y.fit||'Z')).map(jobCard).join('');
     }).join('');
   }
   $('#jinfo').textContent=jobsInfo.updated?'Seznam naposledy aktualizován '+fmtD(jobsInfo.updated)+'.':(jobsInfo.error||'');
