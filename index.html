@@ -411,14 +411,14 @@ const DEFAULT_SEARCHES=[
  {id:'s2',portal:'linkedin',name:'Obchod – Praha',kw:'Key Account Manager, Account Manager, Sales Manager, Business Development Manager',loc:'Praha, Česko',radius:20,salary:80000,remote:false},
  {id:'s3',portal:'linkedin',name:'Obchod – remote Česko',kw:'Key Account Manager, Account Manager, Sales Manager, Business Development Manager',loc:'Česko',radius:0,salary:80000,remote:true}
 ];
-function normState(s){s=s||{};return {kind:'jobstate',id:'jobstate',applied:s.applied||{},replied:s.replied||{},fu:s.fu||{},tracked:s.tracked||{},seen:s.seen||{},hid:s.hid||{},manual:s.manual||[],searches:(s.searches&&s.searches.length)?s.searches:JSON.parse(JSON.stringify(DEFAULT_SEARCHES))}}
+function normState(s){s=s||{};return {kind:'jobstate',id:'jobstate',applied:s.applied||{},replied:s.replied||{},fu:s.fu||{},tracked:s.tracked||{},del:s.del||{},seen:s.seen||{},hid:s.hid||{},manual:s.manual||[],searches:(s.searches&&s.searches.length)?s.searches:JSON.parse(JSON.stringify(DEFAULT_SEARCHES))}}
 let jobState=normState((()=>{try{return JSON.parse(localStorage.getItem('hp_jobstate')||'null')}catch(e){return null}})());
 let JOBS=[],jobsInfo={updated:'',error:''},sEdit=null;
 const SRC={jobs:'jobs.cz',linkedin:'LinkedIn'};
 function persistJobState(){try{localStorage.setItem('hp_jobstate',JSON.stringify(jobState))}catch(e){}
   if(mode==='db'&&col){try{col.doc('jobstate').set(jobState)}catch(e){}}}
 function saveJobState(){persistJobState();renderJobs();renderSearch()}
-function allJobs(){return JOBS.concat(jobState.manual)}
+function allJobs(){return JOBS.concat(jobState.manual).filter(j=>!jobState.del[j.id])}
 
 function jobToItem(j){
   const ag=j.type==='agentura';
@@ -455,7 +455,7 @@ function jobCard(j){
   <label class="ck"><input type="checkbox" data-ap="${esc(j.id)}"${ap?' checked':''}> Odpověděl jsem</label>
   ${ap?`<label class="ck"><input type="checkbox" data-rp="${esc(j.id)}"${S.replied[j.id]?' checked':''}> Ozvali se</label>`:''}
   ${fuDue(j.id)?`<button data-fu="${esc(j.id)}">Follow-up</button><label class="ck"><input type="checkbox" data-fud="${esc(j.id)}"> Follow-up poslán</label>`:''}
-  <button data-reply="${esc(j.id)}">Odpověď</button><button data-adopt="${esc(j.id)}">Do oslovení</button><button data-hide="${esc(j.id)}">${S.hid[j.id]?'Vrátit':'Skrýt'}</button></div></div>`;
+  <button data-reply="${esc(j.id)}">Odpověď</button><button data-adopt="${esc(j.id)}">Do oslovení</button><button data-hide="${esc(j.id)}">${S.hid[j.id]?'Vrátit':'Skrýt'}</button><button data-del="${esc(j.id)}">Smazat</button></div></div>`;
 }
 function renderJobs(){
   const box=$('#jobsBody');if(!box)return;
@@ -548,7 +548,10 @@ $('#sm').addEventListener('click',e=>{if(e.target.id==='sm')$('#sm').classList.r
 $('#jm').addEventListener('click',e=>{if(e.target.id==='jm')$('#jm').classList.remove('on')});
 $('#jobsBody').addEventListener('click',e=>{
   const g=a=>{const el=e.target.closest('['+a+']');return el?el.getAttribute(a):null};
-  const o=g('data-open'),h=g('data-hide'),ad=g('data-adopt'),rp=g('data-reply'),fu=g('data-fu');
+  const o=g('data-open'),h=g('data-hide'),ad=g('data-adopt'),rp=g('data-reply'),fu=g('data-fu'),dl=g('data-del');
+  if(dl){const b=e.target.closest('[data-del]');
+    if(b.dataset.armed){jobState.del[dl]=1;jobState.manual=jobState.manual.filter(x=>x.id!==dl);delete jobState.hid[dl];saveJobState();flash('Inzerát smazán')}
+    else{b.dataset.armed=1;b.textContent='Opravdu smazat?';setTimeout(()=>{if(b.isConnected){b.dataset.armed='';b.textContent='Smazat'}},3000)}}
   if(rp){const j=allJobs().find(x=>x.id===rp);if(j){
     const t='Připrav mi odpověď na pracovní inzerát: '+j.title+', '+j.company+(j.loc?' ('+j.loc+')':'')+'. Odkaz: '+j.url+'\nPřečti si inzerát, napiš motivační dopis podle mého CV (z projektu Hledání práce) a vytvoř v Gmailu KONCEPT e-mailu s dopisem. Neodesílej nic, koncept si odešlu sám.';
     jobState.seen[rp]=1;persistJobState();toChat(t);
