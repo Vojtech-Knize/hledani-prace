@@ -99,9 +99,9 @@ button.pri{background:linear-gradient(135deg,#4f46e5,#0ea5e9);border-color:trans
 .job .ck{display:flex;align-items:center;gap:6px;font-size:13.5px;margin:0;color:var(--ink)}
 .job .ck input{width:auto}
 .act{align-items:center;flex-wrap:wrap}
-.tag.src-l{background:rgba(10,102,194,.16);color:#0a66c2}
+.tag.src-l{background:rgba(10,102,194,.16);color:#0a66c2}.tag.src-j{background:rgba(22,163,74,.16);color:#15803d}.tag.src-s{background:rgba(124,58,237,.16);color:#6d28d9}.tag.src-o{background:rgba(234,88,12,.16);color:#c2410c}
 .tag.new{background:rgba(245,158,11,.22);color:#92400e}
-@media(prefers-color-scheme:dark){.tag.src-l{color:#7ab8f5}.tag.new{color:#fcd34d}}
+@media(prefers-color-scheme:dark){.tag.src-l{color:#7ab8f5}.tag.src-j{color:#86efac}.tag.src-s{color:#c4b5fd}.tag.src-o{color:#fdba74}.tag.new{color:#fcd34d}}
 .hint{font-size:12.5px;color:var(--mut);margin:0 0 12px}
 .sitem .lnk{display:inline-block;text-decoration:none;color:#fff;background:var(--acc);padding:6px 12px;border-radius:10px;font-size:13px}
 .sitem .kw{font-size:13px;color:var(--mut);margin:4px 0}
@@ -133,7 +133,7 @@ button.pri{background:linear-gradient(135deg,#4f46e5,#0ea5e9);border-color:trans
   <div id="viewJobs" hidden>
     <div class="stats" id="jstats"></div>
     <div id="jfu"></div>
-    <div class="bar"><input id="jq" placeholder="Hledat firmu, pozici…"><select id="js"><option value="">Aktivní</option><option value="new">Jen nové</option><option value="todo">Neodpovězené</option><option value="app">Odpovězené</option><option value="fu">Ozvat se znovu</option><option value="hid">Skryté</option></select><select id="jp"><option value="">Všechny portály</option><option value="jobs">jobs.cz</option><option value="linkedin">LinkedIn</option></select></div>
+    <div class="bar"><input id="jq" placeholder="Hledat firmu, pozici…"><select id="js"><option value="">Aktivní</option><option value="new">Jen nové</option><option value="todo">Neodpovězené</option><option value="app">Odpovězené</option><option value="fu">Ozvat se znovu</option><option value="hid">Skryté</option></select><select id="jp"><option value="">Všechny portály</option><option value="jobs">jobs.cz</option><option value="linkedin">LinkedIn</option><option value="startupjobs">StartupJobs</option><option value="jooble">Jooble</option><option value="other">Jiný portál</option></select></div>
     <details style="margin:0 0 10px;padding:10px 12px;border:1px solid var(--line,#d0d5dd);border-radius:10px;font-size:14px"><summary style="cursor:pointer;font-weight:600">Jak odpovědět na inzerát (motivační dopis)</summary>
     <ol style="margin:8px 0 0;padding-left:20px;line-height:1.5">
       <li>U inzerátu klepni na <b>Odpověď</b>. Zadání se zkopíruje do schránky.</li>
@@ -415,7 +415,8 @@ const DEFAULT_SEARCHES=[
 function normState(s){s=s||{};return {kind:'jobstate',id:'jobstate',applied:s.applied||{},replied:s.replied||{},fu:s.fu||{},tracked:s.tracked||{},del:s.del||{},seen:s.seen||{},hid:s.hid||{},manual:s.manual||[],searches:((s.searches&&s.searches.length)?s.searches:JSON.parse(JSON.stringify(DEFAULT_SEARCHES))).map(x=>+x.salary===80000?{...x,salary:75000}:x)}}
 let jobState=normState((()=>{try{return JSON.parse(localStorage.getItem('hp_jobstate')||'null')}catch(e){return null}})());
 let JOBS=[],jobsInfo={updated:'',error:''},sEdit=null;
-const SRC={jobs:'jobs.cz',linkedin:'LinkedIn'};
+const SRC={jobs:'jobs.cz',linkedin:'LinkedIn',startupjobs:'StartupJobs',jooble:'Jooble',other:'Jiný portál'};
+const SRCC={jobs:'src-j',linkedin:'src-l',startupjobs:'src-s',jooble:'src-o'};
 function persistJobState(){try{localStorage.setItem('hp_jobstate',JSON.stringify(jobState))}catch(e){}
   if(mode==='db'&&col){try{col.doc('jobstate').set(jobState)}catch(e){}}}
 function saveJobState(){persistJobState();renderJobs();renderSearch()}
@@ -450,7 +451,7 @@ function jobCard(j){
   return `<div class="item job ${ap?'j-app':''} ${nw&&!ap?'j-new':''}">
   <div class="top"><div><div class="name">${esc(j.title)}</div><div class="pos">${esc(j.company)}${j.loc?' · '+esc(j.loc):''}</div></div>
   <span class="tag ${ap?'ok':nw?'new':'g'}">${ap?'Odpovězeno':nw?'Nové':'Viděno'}</span></div>
-  <div class="tags"><span class="tag ${j.src==='linkedin'?'src-l':'g'}">${SRC[j.src]||'Jiný portál'}</span>${j.salary?`<span class="tag">${esc(j.salary)}</span>`:'<span class="tag g">plat neuveden</span>'}${j.fit?`<span class="tag ${j.fit==='A'?'ok':j.fit==='B'?'new':'g'}" title="${esc(j.why||'')}">Shoda ${j.fit}</span>`:''}${wm?`<span class="tag ${wm[1]}">${wm[0]}</span>`:''}${ap?`<span class="tag ok">odpovězeno ${fmtD(ap)}</span>`:''}${S.replied[j.id]?`<span class="tag ok">ozvali se ${fmtD(S.replied[j.id])}</span>`:''}${fuDue(j.id)?`<span class="tag" style="background:#fde68a;color:#92400e">Ozvi se znovu · ${fuDays(j.id)} dní bez odpovědi</span>`:''}</div>
+  <div class="tags"><span class="tag ${SRCC[j.src]||'g'}">Zdroj: ${SRC[j.src]||'Jiný portál'}</span>${j.salary?`<span class="tag">${esc(j.salary)}</span>`:'<span class="tag g">plat neuveden</span>'}${j.fit?`<span class="tag ${j.fit==='A'?'ok':j.fit==='B'?'new':'g'}" title="${esc(j.why||'')}">Shoda ${j.fit}</span>`:''}${wm?`<span class="tag ${wm[1]}">${wm[0]}</span>`:''}${ap?`<span class="tag ok">odpovězeno ${fmtD(ap)}</span>`:''}${S.replied[j.id]?`<span class="tag ok">ozvali se ${fmtD(S.replied[j.id])}</span>`:''}${fuDue(j.id)?`<span class="tag" style="background:#fde68a;color:#92400e">Ozvi se znovu · ${fuDays(j.id)} dní bez odpovědi</span>`:''}</div>
   ${j.why?`<div class="rows"><div><i>Proč:</i> ${esc(j.why)}</div></div>`:''}${j.note?`<div class="rows"><div><i>Poznámka:</i> ${esc(j.note)}</div></div>`:''}
   <div class="act"><a class="lnk" href="${esc(j.url)}" target="_blank" rel="noopener" data-open="${esc(j.id)}">Otevřít inzerát</a>
   <label class="ck"><input type="checkbox" data-ap="${esc(j.id)}"${ap?' checked':''}> Odpověděl jsem</label>
@@ -527,7 +528,7 @@ function saveSearch(){
 function addManual(){
   const url=$('#mUrl').value.trim();if(!/^https?:\/\//.test(url)){$('#mUrl').focus();return}
   const id=url.split('?')[0];
-  if(!allJobs().some(j=>j.id===id))jobState.manual.push({id,src:/linkedin\.com/.test(id)?'linkedin':/jobs\.cz/.test(id)?'jobs':'other',title:$('#mTitle').value.trim()||'Inzerát',company:$('#mCo').value.trim(),loc:$('#mLoc').value.trim(),salary:'',mode:'',url,first:today,note:''});
+  if(!allJobs().some(j=>j.id===id))jobState.manual.push({id,src:/linkedin\.com/.test(id)?'linkedin':/jobs\.cz/.test(id)?'jobs':/startupjobs\.cz/.test(id)?'startupjobs':/jooble\.org/.test(id)?'jooble':'other',title:$('#mTitle').value.trim()||'Inzerát',company:$('#mCo').value.trim(),loc:$('#mLoc').value.trim(),salary:'',mode:'',url,first:today,note:''});
   $('#jm').classList.remove('on');['#mUrl','#mTitle','#mCo','#mLoc'].forEach(s=>$(s).value='');saveJobState();
 }
 async function initJobs(){
