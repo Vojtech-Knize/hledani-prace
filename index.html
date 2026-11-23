@@ -420,7 +420,7 @@ function jobCard(j){
   ${j.why?`<div class="rows"><div><i>Proč:</i> ${esc(j.why)}</div></div>`:''}${j.note?`<div class="rows"><div><i>Poznámka:</i> ${esc(j.note)}</div></div>`:''}
   <div class="act"><a class="lnk" href="${esc(j.url)}" target="_blank" rel="noopener" data-open="${esc(j.id)}">Otevřít inzerát</a>
   <label class="ck"><input type="checkbox" data-ap="${esc(j.id)}"${ap?' checked':''}> Odpověděl jsem</label>
-  <button data-adopt="${esc(j.id)}">Do oslovení</button><button data-hide="${esc(j.id)}">${S.hid[j.id]?'Vrátit':'Skrýt'}</button></div></div>`;
+  <button data-reply="${esc(j.id)}">Odpověď</button><button data-adopt="${esc(j.id)}">Do oslovení</button><button data-hide="${esc(j.id)}">${S.hid[j.id]?'Vrátit':'Skrýt'}</button></div></div>`;
 }
 function renderJobs(){
   const box=$('#jobsBody');if(!box)return;
@@ -510,7 +510,13 @@ $('#sm').addEventListener('click',e=>{if(e.target.id==='sm')$('#sm').classList.r
 $('#jm').addEventListener('click',e=>{if(e.target.id==='jm')$('#jm').classList.remove('on')});
 $('#jobsBody').addEventListener('click',e=>{
   const g=a=>{const el=e.target.closest('['+a+']');return el?el.getAttribute(a):null};
-  const o=g('data-open'),h=g('data-hide'),ad=g('data-adopt');
+  const o=g('data-open'),h=g('data-hide'),ad=g('data-adopt'),rp=g('data-reply');
+  if(rp){const j=allJobs().find(x=>x.id===rp);if(j){
+    const t='Připrav mi odpověď na pracovní inzerát: '+j.title+', '+j.company+(j.loc?' ('+j.loc+')':'')+'. Odkaz: '+j.url+'\nPřečti si inzerát, napiš motivační dopis podle mého CV (z projektu Hledání práce) a vytvoř v Gmailu KONCEPT e-mailu s dopisem. Neodesílej nic, koncept si odešlu sám.';
+    try{navigator.clipboard.writeText(t)}catch(err){}
+    jobState.seen[rp]=1;persistJobState();
+    window.open('https://claude.ai/new?q='+encodeURIComponent(t),'_blank');
+  }}
   if(o){jobState.seen[o]=1;persistJobState();setTimeout(renderJobs,700)}
   if(h){if(jobState.hid[h])delete jobState.hid[h];else jobState.hid[h]=1;saveJobState()}
   if(ad){const j=allJobs().find(x=>x.id===ad);if(j){showTab('apps');openForm({date:today,who:'me',name:j.company,type:'firma',pos:j.title,contact:j.url,workmode:j.mode||'',contract:'',status:'open'})}}
