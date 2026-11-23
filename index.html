@@ -408,11 +408,11 @@ $('#list').addEventListener('click',e=>{
 });
 /* ---------- inzeráty a hledání ---------- */
 const DEFAULT_SEARCHES=[
- {id:'s1',portal:'jobs',name:'Obchod – Praha',kw:'key account manager, account manager, sales manager, obchodník, business development manager',loc:'Praha',radius:20,salary:80000,remote:false},
- {id:'s2',portal:'linkedin',name:'Obchod – Praha',kw:'Key Account Manager, Account Manager, Sales Manager, Business Development Manager',loc:'Praha, Česko',radius:20,salary:80000,remote:false},
- {id:'s3',portal:'linkedin',name:'Obchod – remote Česko',kw:'Key Account Manager, Account Manager, Sales Manager, Business Development Manager',loc:'Česko',radius:0,salary:80000,remote:true}
+ {id:'s1',portal:'jobs',name:'Obchod – Praha',kw:'key account manager, account manager, sales manager, obchodník, business development manager',loc:'Praha',radius:20,salary:75000,remote:false},
+ {id:'s2',portal:'linkedin',name:'Obchod – Praha',kw:'Key Account Manager, Account Manager, Sales Manager, Business Development Manager',loc:'Praha, Česko',radius:20,salary:75000,remote:false},
+ {id:'s3',portal:'linkedin',name:'Obchod – remote Česko',kw:'Key Account Manager, Account Manager, Sales Manager, Business Development Manager',loc:'Česko',radius:0,salary:75000,remote:true}
 ];
-function normState(s){s=s||{};return {kind:'jobstate',id:'jobstate',applied:s.applied||{},replied:s.replied||{},fu:s.fu||{},tracked:s.tracked||{},del:s.del||{},seen:s.seen||{},hid:s.hid||{},manual:s.manual||[],searches:(s.searches&&s.searches.length)?s.searches:JSON.parse(JSON.stringify(DEFAULT_SEARCHES))}}
+function normState(s){s=s||{};return {kind:'jobstate',id:'jobstate',applied:s.applied||{},replied:s.replied||{},fu:s.fu||{},tracked:s.tracked||{},del:s.del||{},seen:s.seen||{},hid:s.hid||{},manual:s.manual||[],searches:((s.searches&&s.searches.length)?s.searches:JSON.parse(JSON.stringify(DEFAULT_SEARCHES))).map(x=>+x.salary===80000?{...x,salary:75000}:x)}}
 let jobState=normState((()=>{try{return JSON.parse(localStorage.getItem('hp_jobstate')||'null')}catch(e){return null}})());
 let JOBS=[],jobsInfo={updated:'',error:''},sEdit=null;
 const SRC={jobs:'jobs.cz',linkedin:'LinkedIn'};
@@ -512,7 +512,7 @@ function renderSearch(){
     <button data-se="${s.id}">Upravit</button><button class="del" data-sd="${s.id}">Smazat</button></div></div>`).join('')||'<div class="empty">Zatím žádné hledání.</div>';
 }
 function openSearch(s){
-  sEdit=s?s.id:null;s=s||{portal:'jobs',name:'',kw:'',loc:'Praha',radius:20,salary:80000,remote:false};
+  sEdit=s?s.id:null;s=s||{portal:'jobs',name:'',kw:'',loc:'Praha',radius:20,salary:75000,remote:false};
   $('#smt').textContent=sEdit?'Upravit hledání':'Nové hledání';
   $('#sPortal').value=s.portal;$('#sName').value=s.name;$('#sKw').value=s.kw;$('#sLoc').value=s.loc;$('#sRad').value=String(s.radius);$('#sSal').value=s.salary||'';$('#sRem').value=s.remote?'1':'';
   $('#sm').classList.add('on');
