@@ -41,7 +41,8 @@
    "first": "2026-11-23",
    "note": "Řídicí pozice",
    "fit": "B",
-   "why": "Řízení obchodu CZ+SK jako v Iron Mountain (11 lidí); obor zatím neznámý"
+   "why": "Řízení obchodu CZ+SK jako v Iron Mountain (11 lidí); obor zatím neznámý",
+   "type": "agentura"
   },
   {
    "id": "https://beta.jobs.cz/nabidka/f470fe09-0fe1-4d8f-acf8-dafa59e8b83e/",
@@ -83,7 +84,8 @@
    "first": "2026-11-23",
    "note": "",
    "fit": "C",
-   "why": "Mimo tvůj obor (IT, SW, dokumenty, kyberbezpečnost)"
+   "why": "Mimo tvůj obor (IT, SW, dokumenty, kyberbezpečnost)",
+   "type": "agentura"
   },
   {
    "id": "https://beta.jobs.cz/nabidka/e1419df4-b3fe-4f92-8846-aaafbed2ccbf/",
@@ -181,7 +183,12 @@
    "first": "2026-11-23",
    "note": "Sedí na Microsoft zkušenost",
    "fit": "A",
-   "why": "Prodej Microsoft řešení a licencí (D365, M365), akvizice, přesně tvoje poslední role. Zaměstnavatel je agentura Moore, klient neuveden"
+   "why": "Prodej Microsoft řešení a licencí (D365, M365), akvizice, přesně tvoje poslední role. Zaměstnavatel je agentura Moore, klient neuveden",
+   "type": "agentura",
+   "contract": "hpp",
+   "contactPerson": "Lucie Hauk (Moore Czech Republic)",
+   "applyVia": "formulář na jobs.cz",
+   "brief": "Key Account Manager – IT: akvizice komerčních zákazníků, prodej licencí Microsoft a souvisejících řešení, spolupráce s konzultanty a architekty. Pracovní smlouva, fix + bonusy, služební auto, 5 týdnů dovolené. Inzerát je za neznámého klienta (IT společnost)."
   },
   {
    "id": "https://t-mobile.jobs.cz/pd/2001549231",
@@ -223,7 +230,13 @@
    "first": "2026-11-23",
    "note": "",
    "fit": "B",
-   "why": "SaaS (contact center) a B2B prodej sedí, ale role Account Executive je spíš juniornější a provizní, plat neuveden"
+   "why": "SaaS (contact center) a B2B prodej sedí, ale role Account Executive je spíš juniornější a provizní, plat neuveden",
+   "type": "firma",
+   "contract": "hpp",
+   "contactPerson": "Kateřina Havlíčková (Daktela)",
+   "applyVia": "formulář na jobs.cz",
+   "brief": "Account Executive pro SaaS (cloudové kontaktní centrum): příchozí zájemci a nové příležitosti, demo, veletrhy. Min. 2 roky B2B prodeje. Provize bez stropu, hybrid. Praha 3.",
+   "research": "Co dělá: cloudová kontaktní centra (CCaaS), omnichannel komunikace; uvádí 1 600+ zákazníků\nSídlo: Praha (podle inzerátu Vinohradská, Praha 3 – Žižkov)\nPočet zaměstnanců: asi 51–200 (odhad databáze ZoomInfo)\nPobočka v Praze: ano (sídlo)\nOdhadovaný roční obrat: asi 247 mil. Kč (2023)\nZajímavost: firma vznikla 2005, má pobočky v dalších zemích střední a východní Evropy. Podklady z veřejných zdrojů, orientační, ověř před pohovorem."
   },
   {
    "id": "https://beta.jobs.cz/nabidka/1c97b026-cf7c-4ace-b560-8685fd49ca8c/",
@@ -237,7 +250,13 @@
    "first": "2026-11-23",
    "note": "",
    "fit": "B",
-   "why": "Staff augmentation a IT služby, inzerát v angličtině, vhodné i pro absolventy, spíš juniornější role"
+   "why": "Staff augmentation a IT služby, inzerát v angličtině, vhodné i pro absolventy, spíš juniornější role",
+   "type": "firma",
+   "contract": "hpp",
+   "contactPerson": "Michal Gargoš (Devoteam)",
+   "applyVia": "formulář na jobs.cz",
+   "brief": "Business Developer: IT konzultace a staff augmentation, rozvoj zákazníků v Česku, tendry, spolupráce s recruitingem. Inzerát v angličtině, vhodné i pro absolventy, hybrid.",
+   "research": "Co dělá: IT poradenství (cloud, kyberbezpečnost, data), v Česku zejména IT služby a poskytování IT specialistů\nSídlo: Ovocný trh 1096/8, Praha 1\nPočet zaměstnanců: asi 120 v ČR (odhad Atmoskop), skupina kolem 10 000\nPobočka v Praze: ano (sídlo)\nOdhadovaný roční obrat: asi 547 mil. Kč (2025, o 13 % víc než 2024)\nZajímavost: součást mezinárodní skupiny Devoteam, v Česku od 2005. Podklady z veřejných zdrojů, orientační, ověř před pohovorem."
   },
   {
    "id": "https://beta.jobs.cz/firma/74ykmx-unicorn/nabidka/b24751ae-12bf-4dc0-a947-b44027ec2c8d/",
@@ -251,7 +270,12 @@
    "first": "2026-11-23",
    "note": "",
    "fit": "C",
-   "why": "Inzerát chce zkušenost s prodejem IT řešení v geoinformatice (GIS), tu v CV nemáš"
+   "why": "Inzerát chce zkušenost s prodejem IT řešení v geoinformatice (GIS), tu v CV nemáš",
+   "type": "firma",
+   "contract": "both",
+   "contactPerson": "Michaela Pojezdná (agentura Deckard & Penfield)",
+   "applyVia": "formulář na jobs.cz",
+   "brief": "Business Development Manager pro geoinformatiku (GIS): řešení na míru, nabídky, výběrová řízení. Požaduje zkušenost s prodejem IT řešení v GIS. Praha 7, HPP nebo IČO. Nabídku zprostředkovává agentura."
   },
   {
    "id": "https://beta.jobs.cz/nabidka/7f729d13-7fdc-4cd0-83e2-f3ac3e624370/",
@@ -265,7 +289,13 @@
    "first": "2026-11-23",
    "note": "",
    "fit": "A",
-   "why": "Veřejný sektor a ICT infrastruktura: ESET public, Simac síť a bezpečnost. Požadují Salesforce CRM"
+   "why": "Veřejný sektor a ICT infrastruktura: ESET public, Simac síť a bezpečnost. Požadují Salesforce CRM",
+   "type": "firma",
+   "contract": "hpp",
+   "contactPerson": "Anna Mazurová (NTT Czech Republic)",
+   "applyVia": "formulář na jobs.cz",
+   "brief": "Senior Client Manager pro veřejný sektor: akvizice a péče o zákazníky, ICT infrastruktura, spolupráce s partnery a výrobci technologií, CRM Salesforce. Měsíční provize, služební auto, home office. Praha 4 – Krč.",
+   "research": "Co dělá: ICT infrastruktura a digitální služby, součást globální skupiny NTT DATA (obrat skupiny přes 30 mld. USD)\nSídlo: Milevská 2095/5, Praha 4 – Krč (inzerát zmiňuje i kanceláře na Pankráci)\nPočet zaměstnanců: nevím (údaj jsem nenašel)\nPobočka v Praze: ano (sídlo)\nOdhadovaný roční obrat: nevím (údaj jsem nenašel)\nZajímavost: v Česku působí od roku 2000, služby využívá 75 % firem z Fortune Global 100 (podle skupiny). Podklady z veřejných zdrojů, orientační, ověř před pohovorem."
   },
   {
    "id": "https://beta.jobs.cz/nabidka/6be25ced-c980-42b4-9765-06e0c72f73bc/",
@@ -279,7 +309,12 @@
    "first": "2026-11-23",
    "note": "",
    "fit": "A",
-   "why": "Klient řeší digitalizaci, správu dokumentů a automatizaci procesů: Canon, Xerox, Iron Mountain, Konica Minolta. Komplexní dlouhé případy, 3+ roky B2B"
+   "why": "Klient řeší digitalizaci, správu dokumentů a automatizaci procesů: Canon, Xerox, Iron Mountain, Konica Minolta. Komplexní dlouhé případy, 3+ roky B2B",
+   "type": "agentura",
+   "contract": "hpp",
+   "contactPerson": "Petra Kantorová (mBlue Czech)",
+   "applyVia": "formulář na jobs.cz",
+   "brief": "Account Manager – akvizice, IT: nové B2B zákazníci, digitalizace, správa dokumentů a automatizace procesů, řízení obchodního případu od prvního kontaktu po podpis. Min. 3 roky B2B, AJ B2, fix + variabilní složka, služební auto. Praha. Klient neuveden (agentura)."
   },
   {
    "id": "https://digiteqautomotive.jobs.cz/pd/2001483930",
@@ -335,7 +370,8 @@
    "first": "2026-11-23",
    "note": "",
    "fit": "C",
-   "why": "Mimo tvůj obor (IT, SW, dokumenty, kyberbezpečnost)"
+   "why": "Mimo tvůj obor (IT, SW, dokumenty, kyberbezpečnost)",
+   "type": "agentura"
   },
   {
    "id": "https://beta.jobs.cz/nabidka/a52d6c60-28f6-476f-adfa-1199114236d6/",
@@ -363,7 +399,8 @@
    "first": "2026-11-23",
    "note": "",
    "fit": "C",
-   "why": "Mimo tvůj obor (IT, SW, dokumenty, kyberbezpečnost)"
+   "why": "Mimo tvůj obor (IT, SW, dokumenty, kyberbezpečnost)",
+   "type": "agentura"
   },
   {
    "id": "https://beta.jobs.cz/nabidka/94c62efa-fce8-4d09-855a-ae324984bd14/",
@@ -419,7 +456,8 @@
    "first": "2026-11-23",
    "note": "",
    "fit": "C",
-   "why": "Mimo tvůj obor (IT, SW, dokumenty, kyberbezpečnost)"
+   "why": "Mimo tvůj obor (IT, SW, dokumenty, kyberbezpečnost)",
+   "type": "agentura"
   }
  ]
 }

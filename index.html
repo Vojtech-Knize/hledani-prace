@@ -411,7 +411,7 @@ const DEFAULT_SEARCHES=[
  {id:'s2',portal:'linkedin',name:'Obchod – Praha',kw:'Key Account Manager, Account Manager, Sales Manager, Business Development Manager',loc:'Praha, Česko',radius:20,salary:80000,remote:false},
  {id:'s3',portal:'linkedin',name:'Obchod – remote Česko',kw:'Key Account Manager, Account Manager, Sales Manager, Business Development Manager',loc:'Česko',radius:0,salary:80000,remote:true}
 ];
-function normState(s){s=s||{};return {kind:'jobstate',id:'jobstate',applied:s.applied||{},replied:s.replied||{},fu:s.fu||{},seen:s.seen||{},hid:s.hid||{},manual:s.manual||[],searches:(s.searches&&s.searches.length)?s.searches:JSON.parse(JSON.stringify(DEFAULT_SEARCHES))}}
+function normState(s){s=s||{};return {kind:'jobstate',id:'jobstate',applied:s.applied||{},replied:s.replied||{},fu:s.fu||{},tracked:s.tracked||{},seen:s.seen||{},hid:s.hid||{},manual:s.manual||[],searches:(s.searches&&s.searches.length)?s.searches:JSON.parse(JSON.stringify(DEFAULT_SEARCHES))}}
 let jobState=normState((()=>{try{return JSON.parse(localStorage.getItem('hp_jobstate')||'null')}catch(e){return null}})());
 let JOBS=[],jobsInfo={updated:'',error:''},sEdit=null;
 const SRC={jobs:'jobs.cz',linkedin:'LinkedIn'};
@@ -419,6 +419,19 @@ function persistJobState(){try{localStorage.setItem('hp_jobstate',JSON.stringify
   if(mode==='db'&&col){try{col.doc('jobstate').set(jobState)}catch(e){}}}
 function saveJobState(){persistJobState();renderJobs();renderSearch()}
 function allJobs(){return JOBS.concat(jobState.manual)}
+
+function jobToItem(j){
+  const ag=j.type==='agentura';
+  const note=['Z inzerátu: '+(j.brief||j.title),'Kontakt: '+(j.contactPerson||'neuveden')+(j.applyVia?' ('+j.applyVia+')':''),'Lokalita: '+(j.loc||'neuvedena')+' · plat: '+(j.salary||'neuveden'),ag?'Agentura: klient zatím není znám, research doplnit po ozvání.':''].filter(Boolean).join('\n');
+  return {date:today,who:'me',name:j.company,type:ag?'agentura':'firma',pos:j.title,contact:(j.contactPerson?j.contactPerson+' · ':'')+j.url,workmode:j.mode||'',contract:j.contract||'',status:'open',note,research:ag?'':(j.research||'')};
+}
+function flash(m){const el=document.createElement('div');el.textContent=m;el.style.cssText='position:fixed;left:12px;right:12px;bottom:18px;background:#166534;color:#fff;padding:12px 14px;border-radius:10px;font-size:14px;z-index:99';document.body.appendChild(el);setTimeout(()=>el.remove(),4000)}
+async function trackJob(j){
+  if(jobState.tracked[j.id])return;
+  const it={...jobToItem(j),id:uid()};
+  jobState.tracked[j.id]=it.id;persistJobState();
+  await put(it);flash('Záznam přidán na záložku Osloveno'+(it.research?' i s researchem':''));
+}
 const FU_DAYS=7;
 function fuDays(id){const S=jobState;if(!S.applied[id]||S.replied[id])return -1;const b=S.fu[id]||S.applied[id];return Math.floor((Date.parse(today)-Date.parse(b))/86400000)}
 function fuDue(id){return fuDays(id)>=FU_DAYS}
@@ -546,7 +559,7 @@ $('#jobsBody').addEventListener('click',e=>{
   }}
   if(o){jobState.seen[o]=1;persistJobState();setTimeout(renderJobs,700)}
   if(h){if(jobState.hid[h])delete jobState.hid[h];else jobState.hid[h]=1;saveJobState()}
-  if(ad){const j=allJobs().find(x=>x.id===ad);if(j){showTab('apps');openForm({date:today,who:'me',name:j.company,type:'firma',pos:j.title,contact:j.url,workmode:j.mode||'',contract:'',status:'open'})}}
+  if(ad){const j=allJobs().find(x=>x.id===ad);if(j){showTab('apps');openForm(jobToItem(j))}}
 });
 $('#jobsBody').addEventListener('change',e=>{
   const rid=e.target.dataset.rp,fid=e.target.dataset.fud;
@@ -555,6 +568,7 @@ $('#jobsBody').addEventListener('change',e=>{
   const id=e.target.dataset.ap;if(!id)return;
   if(e.target.checked){jobState.applied[id]=today;jobState.seen[id]=1}else{delete jobState.applied[id];delete jobState.replied[id];delete jobState.fu[id]}
   saveJobState();
+  if(e.target.checked){const j=allJobs().find(x=>x.id===id);if(j)trackJob(j)}
 });
 $('#searchBody').addEventListener('click',e=>{
   const se=e.target.dataset.se,sd=e.target.dataset.sd;
