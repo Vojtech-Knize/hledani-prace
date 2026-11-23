@@ -141,6 +141,13 @@ button.pri{background:linear-gradient(135deg,#4f46e5,#0ea5e9);border-color:trans
     <p class="hint">Přednastavená hledání. Tlačítko „Otevřít hledání“ otevře portál rovnou s vyplněnými filtry. Nové inzeráty z nich pak přibývají do záložky Inzeráty.</p>
     <div id="searchBody"></div>
     <button class="pri" id="sAdd">+ Nové hledání</button>
+    <div class="item" style="margin-top:16px"><div class="name">Záloha dat</div>
+    <p class="hint" style="margin:4px 0 8px">Tvoje záznamy jsou uložené jen v tomto telefonu. Občas si udělej zálohu, ať o ně nepřijdeš.</p>
+    <div class="act"><button class="pri" id="bkCopy">Zkopírovat zálohu</button><button id="bkFile">Stáhnout soubor</button></div>
+    <div class="hint" id="bkInfo" style="margin-top:8px"></div>
+    <label>Obnovit ze zálohy (vyber soubor nebo vlož text)</label><input type="file" id="bkIn" accept=".json,application/json">
+    <textarea id="bkText" rows="3" placeholder="Sem vlož zálohu" style="margin-top:8px"></textarea>
+    <div class="act"><button id="bkRestore">Obnovit</button></div><div class="hint" id="bkMsg"></div></div>
   </div>
   <div class="note">Data se ukládají do tvého účtu a jsou vidět jen tobě.</div>
 </div>
@@ -403,7 +410,7 @@ function saveJobState(){persistJobState();renderJobs();renderSearch()}
 function allJobs(){return JOBS.concat(jobState.manual)}
 function showTab(t){['apps','jobs','search'].forEach(k=>{$('#view'+k[0].toUpperCase()+k.slice(1)).hidden=k!==t});
   document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));
-  $('#add').style.display=t==='apps'?'':'none'}
+  $('#add').style.display=t==='apps'?'':'none';renderBackup()}
 function jobCard(j){
   const S=jobState,ap=S.applied[j.id],nw=!S.seen[j.id],wm=j.mode&&WM[j.mode];
   return `<div class="item job ${ap?'j-app':''} ${nw&&!ap?'j-new':''}">
@@ -521,6 +528,26 @@ $('#searchBody').addEventListener('click',e=>{
     else{e.target.dataset.armed=1;e.target.textContent='Opravdu smazat?';setTimeout(()=>{e.target.dataset.armed='';e.target.textContent='Smazat'},3000)}
   }
 });
+/* ---------- záloha ---------- */
+function backupJson(){return JSON.stringify({v:1,saved:new Date().toISOString(),items,jobState})}
+function renderBackup(){const el=$('#bkInfo');if(!el)return;let d='';try{d=localStorage.getItem('hp_lastbackup')||''}catch(e){}
+  el.textContent=d?'Poslední záloha: '+fmtD(d)+'.':'Zálohu jsi zatím nevytvořil.';
+  el.style.color=(!d&&items.length)?'var(--warn)':'var(--mut)'}
+function markBackup(){try{localStorage.setItem('hp_lastbackup',today)}catch(e){}renderBackup()}
+$('#bkCopy').onclick=async()=>{const t=backupJson();
+  try{await navigator.clipboard.writeText(t);$('#bkMsg').textContent='Záloha je zkopírovaná. Vlož ji třeba do poznámek v telefonu.';markBackup()}
+  catch(e){$('#bkText').value=t;$('#bkMsg').textContent='Kopírování nešlo. Zálohu najdeš v poli níže, zkopíruj ji ručně.'}};
+$('#bkFile').onclick=()=>{const b=new Blob([backupJson()],{type:'application/json'});const a=document.createElement('a');
+  a.href=URL.createObjectURL(b);a.download='hledani-prace-zaloha-'+today+'.json';document.body.appendChild(a);a.click();a.remove();
+  $('#bkMsg').textContent='Soubor zálohy se stáhl.';markBackup()};
+$('#bkIn').onchange=e=>{const f=e.target.files[0];if(f)f.text().then(t=>{$('#bkText').value=t})};
+$('#bkRestore').onclick=async()=>{try{const d=JSON.parse($('#bkText').value);if(!d||!Array.isArray(d.items))throw new Error('bad');
+  for(const it of d.items)if(it&&it.id)await put(it);
+  jobState=normState(d.jobState);persistJobState();render();renderJobs();renderSearch();
+  $('#bkText').value='';$('#bkMsg').textContent='Záloha obnovena: '+d.items.length+' záznamů.'}
+  catch(e){$('#bkMsg').textContent='Zálohu se nepodařilo přečíst. Vlož celý text zálohy.'}};
+try{if(navigator.storage&&navigator.storage.persist)navigator.storage.persist()}catch(e){}
+renderBackup();
 render();initStore();initJobs();
 if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js").catch(()=>{});
 </script>
