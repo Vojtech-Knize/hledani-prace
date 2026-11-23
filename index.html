@@ -132,7 +132,8 @@ button.pri{background:linear-gradient(135deg,#4f46e5,#0ea5e9);border-color:trans
   <div id="list"></div></div>
   <div id="viewJobs" hidden>
     <div class="stats" id="jstats"></div>
-    <div class="bar"><input id="jq" placeholder="Hledat firmu, pozici…"><select id="js"><option value="">Aktivní</option><option value="new">Jen nové</option><option value="todo">Neodpovězené</option><option value="app">Odpovězené</option><option value="hid">Skryté</option></select><select id="jp"><option value="">Všechny portály</option><option value="jobs">jobs.cz</option><option value="linkedin">LinkedIn</option></select></div>
+    <div id="jfu"></div>
+    <div class="bar"><input id="jq" placeholder="Hledat firmu, pozici…"><select id="js"><option value="">Aktivní</option><option value="new">Jen nové</option><option value="todo">Neodpovězené</option><option value="app">Odpovězené</option><option value="fu">Ozvat se znovu</option><option value="hid">Skryté</option></select><select id="jp"><option value="">Všechny portály</option><option value="jobs">jobs.cz</option><option value="linkedin">LinkedIn</option></select></div>
     <details style="margin:0 0 10px;padding:10px 12px;border:1px solid var(--line,#d0d5dd);border-radius:10px;font-size:14px"><summary style="cursor:pointer;font-weight:600">Jak odpovědět na inzerát (motivační dopis)</summary>
     <ol style="margin:8px 0 0;padding-left:20px;line-height:1.5">
       <li>U inzerátu klepni na <b>Odpověď</b>. Zadání se zkopíruje do schránky.</li>
@@ -410,7 +411,7 @@ const DEFAULT_SEARCHES=[
  {id:'s2',portal:'linkedin',name:'Obchod – Praha',kw:'Key Account Manager, Account Manager, Sales Manager, Business Development Manager',loc:'Praha, Česko',radius:20,salary:80000,remote:false},
  {id:'s3',portal:'linkedin',name:'Obchod – remote Česko',kw:'Key Account Manager, Account Manager, Sales Manager, Business Development Manager',loc:'Česko',radius:0,salary:80000,remote:true}
 ];
-function normState(s){s=s||{};return {kind:'jobstate',id:'jobstate',applied:s.applied||{},seen:s.seen||{},hid:s.hid||{},manual:s.manual||[],searches:(s.searches&&s.searches.length)?s.searches:JSON.parse(JSON.stringify(DEFAULT_SEARCHES))}}
+function normState(s){s=s||{};return {kind:'jobstate',id:'jobstate',applied:s.applied||{},replied:s.replied||{},fu:s.fu||{},seen:s.seen||{},hid:s.hid||{},manual:s.manual||[],searches:(s.searches&&s.searches.length)?s.searches:JSON.parse(JSON.stringify(DEFAULT_SEARCHES))}}
 let jobState=normState((()=>{try{return JSON.parse(localStorage.getItem('hp_jobstate')||'null')}catch(e){return null}})());
 let JOBS=[],jobsInfo={updated:'',error:''},sEdit=null;
 const SRC={jobs:'jobs.cz',linkedin:'LinkedIn'};
@@ -418,6 +419,15 @@ function persistJobState(){try{localStorage.setItem('hp_jobstate',JSON.stringify
   if(mode==='db'&&col){try{col.doc('jobstate').set(jobState)}catch(e){}}}
 function saveJobState(){persistJobState();renderJobs();renderSearch()}
 function allJobs(){return JOBS.concat(jobState.manual)}
+const FU_DAYS=7;
+function fuDays(id){const S=jobState;if(!S.applied[id]||S.replied[id])return -1;const b=S.fu[id]||S.applied[id];return Math.floor((Date.parse(today)-Date.parse(b))/86400000)}
+function fuDue(id){return fuDays(id)>=FU_DAYS}
+function toChat(t,msg){
+  const U='https://claude.ai/project/01a1ef94-7415-706d-b65a-a697a689abad';
+  const bar=m=>{const el=document.createElement('div');el.innerHTML='<div>'+m+'</div><a href="'+U+'" target="_blank" rel="noopener" style="display:block;margin-top:8px;padding:10px;background:#3b82f6;color:#fff;text-align:center;border-radius:8px;text-decoration:none;font-weight:600">Otevřít projekt v Claude</a>';el.style.cssText='position:fixed;left:12px;right:12px;bottom:18px;background:#1f2937;color:#fff;padding:12px 14px;border-radius:10px;font-size:14px;z-index:99;box-shadow:0 4px 16px rgba(0,0,0,.3)';el.onclick=e=>{if(e.target.tagName==='A')setTimeout(()=>el.remove(),300)};document.body.appendChild(el);setTimeout(()=>el.remove(),20000)};
+  const okm='Zadání je zkopírované. Otevři projekt, začni nový chat a vlož ho (podrž pole, Vložit).';
+  if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(()=>bar(okm),()=>{window.prompt('Zkopíruj si zadání:',t);bar('Zadání vlož do nového chatu v projektu.')})}else{window.prompt('Zkopíruj si zadání:',t);bar('Zadání vlož do nového chatu v projektu.')}
+}
 function showTab(t){['apps','jobs','search'].forEach(k=>{$('#view'+k[0].toUpperCase()+k.slice(1)).hidden=k!==t});
   document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));
   $('#add').style.display=t==='apps'?'':'none';renderBackup()}
@@ -426,10 +436,12 @@ function jobCard(j){
   return `<div class="item job ${ap?'j-app':''} ${nw&&!ap?'j-new':''}">
   <div class="top"><div><div class="name">${esc(j.title)}</div><div class="pos">${esc(j.company)}${j.loc?' · '+esc(j.loc):''}</div></div>
   <span class="tag ${ap?'ok':nw?'new':'g'}">${ap?'Odpovězeno':nw?'Nové':'Viděno'}</span></div>
-  <div class="tags"><span class="tag ${j.src==='linkedin'?'src-l':'g'}">${SRC[j.src]||'Jiný portál'}</span>${j.salary?`<span class="tag">${esc(j.salary)}</span>`:'<span class="tag g">plat neuveden</span>'}${j.fit?`<span class="tag ${j.fit==='A'?'ok':j.fit==='B'?'new':'g'}" title="${esc(j.why||'')}">Shoda ${j.fit}</span>`:''}${wm?`<span class="tag ${wm[1]}">${wm[0]}</span>`:''}${ap?`<span class="tag ok">odpovězeno ${fmtD(ap)}</span>`:''}</div>
+  <div class="tags"><span class="tag ${j.src==='linkedin'?'src-l':'g'}">${SRC[j.src]||'Jiný portál'}</span>${j.salary?`<span class="tag">${esc(j.salary)}</span>`:'<span class="tag g">plat neuveden</span>'}${j.fit?`<span class="tag ${j.fit==='A'?'ok':j.fit==='B'?'new':'g'}" title="${esc(j.why||'')}">Shoda ${j.fit}</span>`:''}${wm?`<span class="tag ${wm[1]}">${wm[0]}</span>`:''}${ap?`<span class="tag ok">odpovězeno ${fmtD(ap)}</span>`:''}${S.replied[j.id]?`<span class="tag ok">ozvali se ${fmtD(S.replied[j.id])}</span>`:''}${fuDue(j.id)?`<span class="tag" style="background:#fde68a;color:#92400e">Ozvi se znovu · ${fuDays(j.id)} dní bez odpovědi</span>`:''}</div>
   ${j.why?`<div class="rows"><div><i>Proč:</i> ${esc(j.why)}</div></div>`:''}${j.note?`<div class="rows"><div><i>Poznámka:</i> ${esc(j.note)}</div></div>`:''}
   <div class="act"><a class="lnk" href="${esc(j.url)}" target="_blank" rel="noopener" data-open="${esc(j.id)}">Otevřít inzerát</a>
   <label class="ck"><input type="checkbox" data-ap="${esc(j.id)}"${ap?' checked':''}> Odpověděl jsem</label>
+  ${ap?`<label class="ck"><input type="checkbox" data-rp="${esc(j.id)}"${S.replied[j.id]?' checked':''}> Ozvali se</label>`:''}
+  ${fuDue(j.id)?`<button data-fu="${esc(j.id)}">Follow-up</button><label class="ck"><input type="checkbox" data-fud="${esc(j.id)}"> Follow-up poslán</label>`:''}
   <button data-reply="${esc(j.id)}">Odpověď</button><button data-adopt="${esc(j.id)}">Do oslovení</button><button data-hide="${esc(j.id)}">${S.hid[j.id]?'Vrátit':'Skrýt'}</button></div></div>`;
 }
 function renderJobs(){
@@ -439,6 +451,8 @@ function renderJobs(){
   $('#newBadge').textContent=nNew||'';
   $('#jstats').innerHTML=[[act.length,'inzerátů'],[nNew,'nových'],[act.length-nApp,'k odpovědi'],[nApp,'odpovězeno']].map(([n,l],k)=>`<div class="stat st${k}"><b>${n}</b><span>${l}</span></div>`).join('');
   const q=$('#jq').value.toLowerCase(),fs=$('#js').value,fp=$('#jp').value;
+  const nFu=act.filter(j=>fuDue(j.id)).length;
+  $('#jfu').innerHTML=nFu?'<div style="margin:0 0 10px;padding:10px 12px;border-radius:10px;background:#fef3c7;color:#92400e;font-size:14px"><b>'+nFu+' '+(nFu===1?'inzerát čeká':'inzerátů čeká')+' na follow-up</b> (7+ dní bez odpovědi). Vyber filtr „Ozvat se znovu“.</div>':'';
   const list=all.filter(j=>{
     const hid=!!S.hid[j.id];
     if(fs==='hid')return hid;
@@ -448,6 +462,7 @@ function renderJobs(){
     if(fs==='new')return !S.seen[j.id];
     if(fs==='todo')return !S.applied[j.id];
     if(fs==='app')return !!S.applied[j.id];
+    if(fs==='fu')return fuDue(j.id);
     return true;
   });
   if(!list.length){box.innerHTML='<div class="empty">'+(all.length?'Nic nenalezeno.':(jobsInfo.error||'Zatím tu nejsou žádné inzeráty.'))+'</div>'}
@@ -520,22 +535,25 @@ $('#sm').addEventListener('click',e=>{if(e.target.id==='sm')$('#sm').classList.r
 $('#jm').addEventListener('click',e=>{if(e.target.id==='jm')$('#jm').classList.remove('on')});
 $('#jobsBody').addEventListener('click',e=>{
   const g=a=>{const el=e.target.closest('['+a+']');return el?el.getAttribute(a):null};
-  const o=g('data-open'),h=g('data-hide'),ad=g('data-adopt'),rp=g('data-reply');
+  const o=g('data-open'),h=g('data-hide'),ad=g('data-adopt'),rp=g('data-reply'),fu=g('data-fu');
   if(rp){const j=allJobs().find(x=>x.id===rp);if(j){
     const t='Připrav mi odpověď na pracovní inzerát: '+j.title+', '+j.company+(j.loc?' ('+j.loc+')':'')+'. Odkaz: '+j.url+'\nPřečti si inzerát, napiš motivační dopis podle mého CV (z projektu Hledání práce) a vytvoř v Gmailu KONCEPT e-mailu s dopisem. Neodesílej nic, koncept si odešlu sám.';
-    const U='https://claude.ai/project/01a1ef94-7415-706d-b65a-a697a689abad';
-    const bar=(m)=>{const el=document.createElement('div');el.innerHTML='<div>'+m+'</div><a href="'+U+'" target="_blank" rel="noopener" style="display:block;margin-top:8px;padding:10px;background:#3b82f6;color:#fff;text-align:center;border-radius:8px;text-decoration:none;font-weight:600">Otevřít projekt v Claude</a>';el.style.cssText='position:fixed;left:12px;right:12px;bottom:18px;background:#1f2937;color:#fff;padding:12px 14px;border-radius:10px;font-size:14px;z-index:99;box-shadow:0 4px 16px rgba(0,0,0,.3)';el.onclick=e=>{if(e.target.tagName==='A')setTimeout(()=>el.remove(),300)};document.body.appendChild(el);setTimeout(()=>el.remove(),20000)};
-    jobState.seen[rp]=1;persistJobState();
-    const okm='Zadání je zkopírované. Otevři projekt, začni nový chat a vlož ho (podrž pole, Vložit).';
-    if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(()=>bar(okm),()=>{window.prompt('Zkopíruj si zadání:',t);bar('Zadání vlož do nového chatu v projektu.')})}else{window.prompt('Zkopíruj si zadání:',t);bar('Zadání vlož do nového chatu v projektu.')}
+    jobState.seen[rp]=1;persistJobState();toChat(t);
+  }}
+  if(fu){const j=allJobs().find(x=>x.id===fu);if(j){
+    const t='Připrav mi krátký follow-up k mé odpovědi na inzerát: '+j.title+', '+j.company+'. Odkaz: '+j.url+'\nOdpovídal jsem '+fmtD(jobState.applied[fu])+' a nikdo se neozval. Napiš 3 až 4 věty, zdvořile a konkrétně (připomenu zájem a jednu věc z mé zkušenosti, která na pozici sedí) a vytvoř v Gmailu KONCEPT e-mailu. Neodesílej nic, koncept si odešlu sám.';
+    toChat(t);
   }}
   if(o){jobState.seen[o]=1;persistJobState();setTimeout(renderJobs,700)}
   if(h){if(jobState.hid[h])delete jobState.hid[h];else jobState.hid[h]=1;saveJobState()}
   if(ad){const j=allJobs().find(x=>x.id===ad);if(j){showTab('apps');openForm({date:today,who:'me',name:j.company,type:'firma',pos:j.title,contact:j.url,workmode:j.mode||'',contract:'',status:'open'})}}
 });
 $('#jobsBody').addEventListener('change',e=>{
+  const rid=e.target.dataset.rp,fid=e.target.dataset.fud;
+  if(rid){if(e.target.checked)jobState.replied[rid]=today;else delete jobState.replied[rid];saveJobState();return}
+  if(fid){if(e.target.checked)jobState.fu[fid]=today;else delete jobState.fu[fid];saveJobState();return}
   const id=e.target.dataset.ap;if(!id)return;
-  if(e.target.checked){jobState.applied[id]=today;jobState.seen[id]=1}else delete jobState.applied[id];
+  if(e.target.checked){jobState.applied[id]=today;jobState.seen[id]=1}else{delete jobState.applied[id];delete jobState.replied[id];delete jobState.fu[id]}
   saveJobState();
 });
 $('#searchBody').addEventListener('click',e=>{
