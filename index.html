@@ -513,9 +513,11 @@ $('#jobsBody').addEventListener('click',e=>{
   const o=g('data-open'),h=g('data-hide'),ad=g('data-adopt'),rp=g('data-reply');
   if(rp){const j=allJobs().find(x=>x.id===rp);if(j){
     const t='Připrav mi odpověď na pracovní inzerát: '+j.title+', '+j.company+(j.loc?' ('+j.loc+')':'')+'. Odkaz: '+j.url+'\nPřečti si inzerát, napiš motivační dopis podle mého CV (z projektu Hledání práce) a vytvoř v Gmailu KONCEPT e-mailu s dopisem. Neodesílej nic, koncept si odešlu sám.';
-    try{navigator.clipboard.writeText(t)}catch(err){}
+    const U='https://claude.ai/project/01a1ef94-7415-706d-b65a-a697a689abad';
+    const bar=(m)=>{const el=document.createElement('div');el.innerHTML='<div>'+m+'</div><a href="'+U+'" target="_blank" rel="noopener" style="display:block;margin-top:8px;padding:10px;background:#3b82f6;color:#fff;text-align:center;border-radius:8px;text-decoration:none;font-weight:600">Otevřít projekt v Claude</a>';el.style.cssText='position:fixed;left:12px;right:12px;bottom:18px;background:#1f2937;color:#fff;padding:12px 14px;border-radius:10px;font-size:14px;z-index:99;box-shadow:0 4px 16px rgba(0,0,0,.3)';el.onclick=e=>{if(e.target.tagName==='A')setTimeout(()=>el.remove(),300)};document.body.appendChild(el);setTimeout(()=>el.remove(),20000)};
     jobState.seen[rp]=1;persistJobState();
-    window.open('https://claude.ai/new?q='+encodeURIComponent(t),'_blank');
+    const okm='Zadání je zkopírované. Otevři projekt, začni nový chat a vlož ho (podrž pole, Vložit).';
+    if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(()=>bar(okm),()=>{window.prompt('Zkopíruj si zadání:',t);bar('Zadání vlož do nového chatu v projektu.')})}else{window.prompt('Zkopíruj si zadání:',t);bar('Zadání vlož do nového chatu v projektu.')}
   }}
   if(o){jobState.seen[o]=1;persistJobState();setTimeout(renderJobs,700)}
   if(h){if(jobState.hid[h])delete jobState.hid[h];else jobState.hid[h]=1;saveJobState()}
