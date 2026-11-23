@@ -144,6 +144,7 @@ button.pri{background:linear-gradient(135deg,#4f46e5,#0ea5e9);border-color:trans
       <li>Potom v aplikaci zaškrtni <b>Odpověděl jsem</b>, aby se inzerát zbarvil.</li>
     </ol>
     <div style="margin-top:8px;color:var(--mut)">Když se zadání nevloží, zkopíruj z inzerátu název, firmu a odkaz a napiš do chatu: „Připrav odpověď na tento inzerát a vytvoř koncept v Gmailu."</div></details>
+    <div class="bar"><select id="jBulkSel"><option value="C">Hodnocení C</option><option value="BC">Hodnocení B a C</option></select><button id="jBulk">Smazat podle shody</button></div>
     <div class="bar"><button id="jSeen">Označit vše jako viděné</button><button id="jAdd">+ Přidat odkaz</button></div>
     <div id="jobsBody"></div>
     <div class="note" id="jinfo"></div>
@@ -541,6 +542,14 @@ async function initJobs(){
 $('#tabs').onclick=e=>{const t=e.target.closest('[data-t]');if(t)showTab(t.dataset.t)};
 $('#jq').oninput=renderJobs;$('#js').onchange=renderJobs;$('#jp').onchange=renderJobs;
 $('#jSeen').onclick=()=>{allJobs().forEach(j=>jobState.seen[j.id]=1);saveJobState()};
+$('#jBulk').onclick=()=>{
+  const b=$('#jBulk'),sel=$('#jBulkSel').value,ok=sel==='C'?['C']:['B','C'];
+  const ids=allJobs().filter(j=>ok.includes(j.fit)&&!jobState.applied[j.id]).map(j=>j.id);
+  if(!ids.length){flash('Žádný inzerát k smazání');return}
+  if(b.dataset.armed){ids.forEach(id=>{jobState.del[id]=1;delete jobState.hid[id]});jobState.manual=jobState.manual.filter(x=>!jobState.del[x.id]);b.dataset.armed='';b.textContent='Smazat podle shody';saveJobState();flash('Smazáno inzerátů: '+ids.length)}
+  else{b.dataset.armed=1;b.textContent='Opravdu smazat '+ids.length+'?';setTimeout(()=>{b.dataset.armed='';b.textContent='Smazat podle shody'},4000)}
+};
+$('#jBulkSel').onchange=()=>{const b=$('#jBulk');b.dataset.armed='';b.textContent='Smazat podle shody'};
 $('#jAdd').onclick=()=>$('#jm').classList.add('on');
 $('#mCancel').onclick=()=>$('#jm').classList.remove('on');$('#mSave').onclick=addManual;
 $('#sAdd').onclick=()=>openSearch();$('#sCancel').onclick=()=>$('#sm').classList.remove('on');$('#sSave').onclick=saveSearch;
