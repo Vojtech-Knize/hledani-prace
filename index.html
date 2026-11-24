@@ -133,7 +133,7 @@ button.pri{background:linear-gradient(135deg,#4f46e5,#0ea5e9);border-color:trans
   <div id="viewJobs" hidden>
     <div class="stats" id="jstats"></div>
     <div id="jfu"></div>
-    <div class="bar"><input id="jq" placeholder="Hledat firmu, pozici…"><select id="js"><option value="">Aktivní</option><option value="new">Jen nové</option><option value="todo">Neodpovězené</option><option value="app">Odpovězené</option><option value="fu">Ozvat se znovu</option><option value="hid">Skryté</option></select><select id="jp"><option value="">Všechny portály</option><option value="jobs">jobs.cz</option><option value="linkedin">LinkedIn</option><option value="startupjobs">StartupJobs</option><option value="jooble">Jooble</option><option value="other">Jiný portál</option></select></div>
+    <div class="bar"><input id="jq" placeholder="Hledat firmu, pozici…"><select id="js"><option value="">Aktivní</option><option value="new">Jen nové</option><option value="todo">Neodpovězené</option><option value="app">Odpovězené</option><option value="fu">Ozvat se znovu</option><option value="hid">Skryté</option></select><select id="jf"><option value="AB">Shoda A + B</option><option value="A">Jen shoda A</option><option value="B">Jen shoda B</option><option value="C">Jen shoda C</option><option value="ALL">Všechny (A, B, C)</option></select><select id="jp"><option value="">Všechny portály</option><option value="jobs">jobs.cz</option><option value="linkedin">LinkedIn</option><option value="startupjobs">StartupJobs</option><option value="jooble">Jooble</option><option value="other">Jiný portál</option></select></div>
     <details style="margin:0 0 10px;padding:10px 12px;border:1px solid var(--line,#d0d5dd);border-radius:10px;font-size:14px"><summary style="cursor:pointer;font-weight:600">Jak odpovědět na inzerát (motivační dopis)</summary>
     <ol style="margin:8px 0 0;padding-left:20px;line-height:1.5">
       <li>U inzerátu klepni na <b>Odpověď</b>. Zadání se zkopíruje do schránky.</li>
@@ -465,10 +465,11 @@ function renderJobs(){
   const nNew=act.filter(j=>!S.seen[j.id]).length,nApp=act.filter(j=>S.applied[j.id]).length;
   $('#newBadge').textContent=nNew||'';
   $('#jstats').innerHTML=[[act.length,'inzerátů'],[nNew,'nových'],[act.length-nApp,'k odpovědi'],[nApp,'odpovězeno']].map(([n,l],k)=>`<div class="stat st${k}"><b>${n}</b><span>${l}</span></div>`).join('');
-  const q=$('#jq').value.toLowerCase(),fs=$('#js').value,fp=$('#jp').value;
+  const q=$('#jq').value.toLowerCase(),fs=$('#js').value,fp=$('#jp').value,ff=$('#jf').value||'AB';
+  const fitOk=j=>ff==='ALL'||(ff==='AB'?(j.fit!=='C'):j.fit===ff);
   const nFu=act.filter(j=>fuDue(j.id)).length;
   $('#jfu').innerHTML=nFu?'<div style="margin:0 0 10px;padding:10px 12px;border-radius:10px;background:#fef3c7;color:#92400e;font-size:14px"><b>'+nFu+' '+(nFu===1?'inzerát čeká':'inzerátů čeká')+' na follow-up</b> (7+ dní bez odpovědi). Vyber filtr „Ozvat se znovu“.</div>':'';
-  const list=all.filter(j=>{
+  const base=all.filter(j=>{
     const hid=!!S.hid[j.id];
     if(fs==='hid')return hid;
     if(hid)return false;
@@ -480,10 +481,13 @@ function renderJobs(){
     if(fs==='fu')return fuDue(j.id);
     return true;
   });
-  if(!list.length){box.innerHTML='<div class="empty">'+(all.length?'Nic nenalezeno.':(jobsInfo.error||'Zatím tu nejsou žádné inzeráty.'))+'</div>'}
+  const list=fs==='hid'?base:base.filter(fitOk);
+  const nFitHid=base.length-list.length;
+  const fitNote=(nFitHid&&fs!=='hid')?'<div class="empty" style="padding:10px 12px;margin:0 0 10px;text-align:left">Skryto kvůli filtru shody: <b>'+nFitHid+'</b> inzerátů. <a href="#" id="jfAll">Zobrazit všechny</a></div>':'';
+  if(!list.length){box.innerHTML=fitNote+'<div class="empty">'+(all.length?'Nic nenalezeno.':(jobsInfo.error||'Zatím tu nejsou žádné inzeráty.'))+'</div>'}
   else{
     const days={};list.forEach(j=>{(days[j.first||'']=days[j.first||'']||[]).push(j)});
-    box.innerHTML=Object.keys(days).sort().reverse().map(d=>{
+    box.innerHTML=fitNote+Object.keys(days).sort().reverse().map(d=>{
       const g=days[d],na=g.filter(j=>S.applied[j.id]).length;
       return `<div class="dh"><b>${d===today?'Dnes · ':''}${d?fmtD(d):'Bez data'}</b><span>${g.length} inzerátů · ${na} odpovězeno</span></div>`+g.slice().sort((x,y)=>(x.fit||'Z').localeCompare(y.fit||'Z')).map(jobCard).join('');
     }).join('');
@@ -541,7 +545,10 @@ async function initJobs(){
   renderJobs();renderSearch();
 }
 $('#tabs').onclick=e=>{const t=e.target.closest('[data-t]');if(t)showTab(t.dataset.t)};
+try{const sv=localStorage.getItem('hp_jfit');if(sv&&[...$('#jf').options].some(o=>o.value===sv))$('#jf').value=sv}catch(e){}
 $('#jq').oninput=renderJobs;$('#js').onchange=renderJobs;$('#jp').onchange=renderJobs;
+$('#jf').onchange=()=>{try{localStorage.setItem('hp_jfit',$('#jf').value)}catch(e){}renderJobs()};
+$('#jobsBody').addEventListener('click',e=>{if(e.target&&e.target.id==='jfAll'){e.preventDefault();$('#jf').value='ALL';try{localStorage.setItem('hp_jfit','ALL')}catch(_){}renderJobs()}});
 $('#jSeen').onclick=()=>{allJobs().forEach(j=>jobState.seen[j.id]=1);saveJobState()};
 $('#jBulk').onclick=()=>{
   const b=$('#jBulk'),sel=$('#jBulkSel').value,ok=sel==='C'?['C']:['B','C'];
