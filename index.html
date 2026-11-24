@@ -464,7 +464,8 @@ function renderJobs(){
   const all=allJobs(),S=jobState,act=all.filter(j=>!S.hid[j.id]);
   const nNew=act.filter(j=>!S.seen[j.id]).length,nApp=act.filter(j=>S.applied[j.id]).length;
   $('#newBadge').textContent=nNew||'';
-  $('#jstats').innerHTML=[[act.length,'inzerátů'],[nNew,'nových'],[act.length-nApp,'k odpovědi'],[nApp,'odpovězeno']].map(([n,l],k)=>`<div class="stat st${k}"><b>${n}</b><span>${l}</span></div>`).join('');
+  const nAB=act.filter(j=>j.fit!=='C').length;
+  $('#jstats').innerHTML=[['<span style="font-size:22px;color:inherit">'+nAB+'</span> <span style="font-size:14px">/ '+act.length+'</span>','A + B / všech vč. C'],[nNew,'nových'],[act.length-nApp,'k odpovědi'],[nApp,'odpovězeno']].map(([n,l],k)=>`<div class="stat st${k}"><b>${n}</b><span>${l}</span></div>`).join('');
   const q=$('#jq').value.toLowerCase(),fs=$('#js').value,fp=$('#jp').value,ff=$('#jf').value||'AB';
   const fitOk=j=>ff==='ALL'||(ff==='AB'?(j.fit!=='C'):j.fit===ff);
   const nFu=act.filter(j=>fuDue(j.id)).length;
