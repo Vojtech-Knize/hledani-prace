@@ -308,6 +308,7 @@ function render(){
       ${i.workmode&&WM[i.workmode]?`<span class="tag ${WM[i.workmode][1]}">${WM[i.workmode][0]}</span>`:''}
       ${i.salary?`<span class="tag">Fix: ${money(i.salary)}</span>`:''}</div>
       <div class="rows">${rounds}${i.contact?`<div><i>Kontakt:</i> ${esc(i.contact)}</div>`:''}${i.note?`<div><i>Poznámka:</i> ${esc(i.note)}</div>`:''}</div>
+      ${replyHtml(replyOf(i.contact))}
       ${i.research?`<details class="rs"><summary>Research o firmě</summary><div>${esc(i.research).replace(/\n/g,'<br>')}</div></details>`:''}
       ${i.next||i.nextDate?`<div class="next ${late?'late':''}"><b>Další krok:</b> ${esc(i.next)}${i.nextDate?' — '+fmtD(i.nextDate):''}${late?' (po termínu)':''}</div>`:''}
       <div class="act"><button data-e="${i.id}">Upravit</button><button class="del" data-d="${i.id}">Smazat</button></div>
@@ -414,13 +415,27 @@ const DEFAULT_SEARCHES=[
 ];
 function normState(s){s=s||{};return {kind:'jobstate',id:'jobstate',applied:s.applied||{},replied:s.replied||{},fu:s.fu||{},tracked:s.tracked||{},del:s.del||{},seen:s.seen||{},hid:s.hid||{},manual:s.manual||[],searches:((s.searches&&s.searches.length)?s.searches:JSON.parse(JSON.stringify(DEFAULT_SEARCHES))).map(x=>+x.salary===80000?{...x,salary:75000}:x)}}
 let jobState=normState((()=>{try{return JSON.parse(localStorage.getItem('hp_jobstate')||'null')}catch(e){return null}})());
-let JOBS=[],jobsInfo={updated:'',error:''},sEdit=null;
+let JOBS=[],REPLIES=[],jobsInfo={updated:'',error:''},sEdit=null;
+function replyOf(id){return REPLIES.find(r=>r.id===id)}
+function nl(s){return esc(s||'').replace(/\n/g,'<br>')}
+function replyHtml(r){
+  if(!r)return '';
+  return `<details class="rs"><summary>Uložený inzerát a moje odpověď${r.date?' ('+fmtD(r.date)+')':''}</summary>
+  <div><i>Moje odpověď${r.cv?' · přílohy: '+esc(r.cv):''}</i></div>
+  <div>${r.subject?'<b>'+esc(r.subject)+'</b><br>':''}${nl(r.body)}</div>
+  <div style="margin-top:10px"><i>Text inzerátu v době odpovědi</i></div>
+  <div>${nl(r.ad)}</div></details>`;
+}
 const SRC={jobs:'jobs.cz',linkedin:'LinkedIn',startupjobs:'StartupJobs',jooble:'Jooble',other:'Jiný portál'};
 const SRCC={jobs:'src-j',linkedin:'src-l',startupjobs:'src-s',jooble:'src-o'};
 function persistJobState(){try{localStorage.setItem('hp_jobstate',JSON.stringify(jobState))}catch(e){}
   if(mode==='db'&&col){try{col.doc('jobstate').set(jobState)}catch(e){}}}
 function saveJobState(){persistJobState();renderJobs();renderSearch()}
-function allJobs(){return JOBS.concat(jobState.manual).filter(j=>!jobState.del[j.id])}
+function allJobs(){
+  const base=JOBS.concat(jobState.manual);
+  const arch=REPLIES.filter(r=>!base.some(j=>j.id===r.id)).map(r=>({id:r.id,src:r.src||(/linkedin\.com/.test(r.id)?'linkedin':/jobs\.cz/.test(r.id)?'jobs':'other'),title:r.title||'Inzerát',company:r.company||'',loc:r.loc||'',salary:r.salary||'',mode:'',url:r.url||r.id,first:r.date||'',note:'Inzerát už není v seznamu, ale je archivovaný',arch:1}));
+  return base.concat(arch).filter(j=>!jobState.del[j.id]);
+}
 
 function jobToItem(j){
   const ag=j.type==='agentura';
@@ -447,12 +462,13 @@ function showTab(t){['apps','jobs','search'].forEach(k=>{$('#view'+k[0].toUpperC
   document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));
   $('#add').style.display=t==='apps'?'':'none';renderBackup()}
 function jobCard(j){
-  const S=jobState,ap=S.applied[j.id],nw=!S.seen[j.id],wm=j.mode&&WM[j.mode];
+  const S=jobState,ap=S.applied[j.id],nw=!S.seen[j.id]&&!j.arch,wm=j.mode&&WM[j.mode];
   return `<div class="item job ${ap?'j-app':''} ${nw&&!ap?'j-new':''}">
   <div class="top"><div><div class="name">${esc(j.title)}</div><div class="pos">${esc(j.company)}${j.loc?' · '+esc(j.loc):''}</div></div>
   <span class="tag ${ap?'ok':nw?'new':'g'}">${ap?'Odpovězeno':nw?'Nové':'Viděno'}</span></div>
   <div class="tags"><span class="tag ${SRCC[j.src]||'g'}">Zdroj: ${SRC[j.src]||'Jiný portál'}</span>${j.salary?`<span class="tag">${esc(j.salary)}</span>`:'<span class="tag g">plat neuveden</span>'}${j.fit?`<span class="tag ${j.fit==='A'?'ok':j.fit==='B'?'new':'g'}" title="${esc(j.why||'')}">Shoda ${j.fit}</span>`:''}${wm?`<span class="tag ${wm[1]}">${wm[0]}</span>`:''}${ap?`<span class="tag ok">odpovězeno ${fmtD(ap)}</span>`:''}${S.replied[j.id]?`<span class="tag ok">ozvali se ${fmtD(S.replied[j.id])}</span>`:''}${fuDue(j.id)?`<span class="tag" style="background:#fde68a;color:#92400e">Ozvi se znovu · ${fuDays(j.id)} dní bez odpovědi</span>`:''}</div>
   ${j.why?`<div class="rows"><div><i>Proč:</i> ${esc(j.why)}</div></div>`:''}${j.note?`<div class="rows"><div><i>Poznámka:</i> ${esc(j.note)}</div></div>`:''}
+  ${replyHtml(replyOf(j.id))}
   <div class="act"><a class="lnk" href="${esc(j.url)}" target="_blank" rel="noopener" data-open="${esc(j.id)}">Otevřít inzerát</a>
   <label class="ck"><input type="checkbox" data-ap="${esc(j.id)}"${ap?' checked':''}> Odpověděl jsem</label>
   ${ap?`<label class="ck"><input type="checkbox" data-rp="${esc(j.id)}"${S.replied[j.id]?' checked':''}> Ozvali se</label>`:''}
@@ -463,7 +479,7 @@ function renderJobs(){
   const box=$('#jobsBody');if(!box)return;
   const all=allJobs(),S=jobState,act=all.filter(j=>!S.hid[j.id]);
   const actAB=act.filter(j=>j.fit!=='C');
-  const nNew=actAB.filter(j=>!S.seen[j.id]).length,nApp=act.filter(j=>S.applied[j.id]).length,nTodo=actAB.filter(j=>!S.applied[j.id]).length;
+  const nNew=actAB.filter(j=>!S.seen[j.id]&&!j.arch).length,nApp=act.filter(j=>S.applied[j.id]).length,nTodo=actAB.filter(j=>!S.applied[j.id]).length;
   $('#newBadge').textContent=nNew||'';
   const nAB=act.filter(j=>j.fit!=='C').length;
   $('#jstats').innerHTML=[['<span style="font-size:22px;color:inherit">'+nAB+'</span> <span style="font-size:14px">/ '+act.length+'</span>','A + B / všech vč. C'],[nNew,'nových (A + B)'],[nTodo,'k odpovědi (A + B)'],[nApp,'odpovězeno']].map(([n,l],k)=>`<div class="stat st${k}"><b>${n}</b><span>${l}</span></div>`).join('');
@@ -544,6 +560,7 @@ async function initJobs(){
     JOBS=(d.jobs||[]).map(j=>({...j,src:j.src||(/linkedin\.com/.test(j.url||'')?'linkedin':'jobs')}));
     jobsInfo.updated=d.updated||'';
   }catch(e){jobsInfo.error='Seznam inzerátů (jobs.json) se nepodařilo načíst.'}
+  try{const r2=await fetch('replies.json?'+Date.now(),{cache:'no-store'});if(r2.ok){const d2=await r2.json();REPLIES=d2.replies||[]}}catch(e){}
   renderJobs();renderSearch();
 }
 $('#tabs').onclick=e=>{const t=e.target.closest('[data-t]');if(t)showTab(t.dataset.t)};
