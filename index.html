@@ -85,6 +85,17 @@ button.pri{background:linear-gradient(135deg,#4f46e5,#0ea5e9);border-color:trans
 @media(prefers-color-scheme:dark){.tag.wm-o{color:#7dd3fc}.tag.wm-h{color:#fcd34d}.tag.wm-r{color:#6ee7b7}}
 @media(max-width:560px){.hero svg{width:96px}}
 @media(max-width:560px){.stats{grid-template-columns:repeat(2,1fr)}.two{grid-template-columns:1fr}}
+#stats .stat{cursor:pointer;user-select:none;transition:transform .08s}
+#stats .stat:active{transform:scale(.97)}
+#stats .stat.on{outline:2px solid var(--acc);outline-offset:-2px}
+.stg{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.stg button{padding:6px 10px;font-size:13px}
+.stg button.on{background:var(--acc);border-color:var(--acc);color:#fff;font-weight:600}
+.stg button.of.on{background:var(--ok);border-color:var(--ok)}
+.stg button.end.on{background:var(--mut);border-color:var(--mut)}
+.s-ended{border-left-color:var(--mut)}
+.toast{position:fixed;left:50%;bottom:80px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:99px;font-size:13.5px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:20;max-width:90vw;text-align:center}
+.toast.on{opacity:1}
 [hidden]{display:none!important}
 .tabs{display:flex;gap:6px;margin-bottom:12px}
 .tabs button{flex:1;padding:10px 6px;font-weight:600}
@@ -114,6 +125,7 @@ button.pri{background:linear-gradient(135deg,#4f46e5,#0ea5e9);border-color:trans
   <div class="tabs" id="tabs"><button data-t="apps" class="on">Moje oslovení</button><button data-t="jobs">Inzeráty<b id="newBadge"></b></button><button data-t="search">Hledání</button></div>
   <div id="viewApps">
   <div class="stats" id="stats"></div>
+  <p class="hint">Klikni na dlaždici a zobrazí se ti ty firmy. Kolo nebo ukončení nastavíš tlačítky přímo na kartě.</p>
   <details class="charts" id="charts" open><summary>Grafy</summary><div id="chartBody"></div></details>
   <div class="bar">
     <input id="q" placeholder="Hledat firmu, pozici…">
@@ -121,7 +133,7 @@ button.pri{background:linear-gradient(135deg,#4f46e5,#0ea5e9);border-color:trans
       <option value="">Vše</option>
       <option value="open">Probíhá</option>
       <option value="offer">Nabídka</option>
-      <option value="no">Zamítnuto / ukončeno</option>
+      <option value="iv">V kolech (pohovory)</option><option value="no">Zamítnuto / ukončeno</option>
     </select>
     <select id="fc">
       <option value="">HPP i IČO</option>
@@ -187,6 +199,8 @@ button.pri{background:linear-gradient(135deg,#4f46e5,#0ea5e9);border-color:trans
   <select id="fMode"><option value="">Neuvedeno</option><option value="office">Kancelář</option><option value="hybrid">Hybrid</option><option value="remote">Full remote</option></select>
   <label>Výsledek náboru</label>
   <select id="fOutcome"><option value="">Zatím nic</option><option value="offer">Nabídka</option><option value="fuck">Fuck</option></select>
+  <label>Aktuální fáze</label>
+  <select id="fStage"><option value="0">Zatím nic</option><option value="1">1. kolo</option><option value="2">2. kolo</option><option value="3">3. kolo</option></select>
   <label>Pohovory</label>
   <div id="rounds"></div>
   <div class="two" style="margin-top:6px">
@@ -194,7 +208,7 @@ button.pri{background:linear-gradient(135deg,#4f46e5,#0ea5e9);border-color:trans
       <select id="fStatus">
         <option value="open">Probíhá</option><option value="offer">Nabídka</option>
         <option value="accepted">Přijato</option><option value="rejected">Zamítnuto firmou</option>
-        <option value="declined">Odmítl jsem já</option>
+        <option value="declined">Odmítl jsem já</option><option value="ended">Nepokračuje dál</option>
       </select></div>
     <div><label>Požadovaný fix (Kč / měsíc)</label><input type="number" id="fSalary" inputmode="numeric" placeholder="např. 70000"></div>
   </div>
@@ -234,7 +248,14 @@ const uid=()=>Math.random().toString(36).slice(2,10)+Date.now().toString(36).sli
 const fmtD=d=>{if(!d)return'';const[y,m,dd]=d.split('-');return `${+dd}. ${+m}. ${y}`};
 const money=n=>n?Number(n).toLocaleString('cs-CZ')+' Kč':'';
 const esc=s=>(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const STATUS={open:['Probíhá',''],offer:['Nabídka','ok'],accepted:['Přijato','ok'],rejected:['Zamítnuto firmou','bad'],declined:['Odmítl jsem já','g']};
+const STATUS={open:['Probíhá',''],offer:['Nabídka','ok'],accepted:['Přijato','ok'],rejected:['Zamítnuto firmou','bad'],declined:['Odmítl jsem já','g'],ended:['Nepokračuje dál','g']};
+const reached=i=>{if(i.stage!==undefined&&i.stage!==null&&i.stage!=='')return +i.stage||0;let n=0;(i.rounds||[]).forEach((r,k)=>{if(r&&(r.form||r.date||r.result))n=k+1});return n};
+function stageBtns(i){
+  const s=i.status||'open',r=reached(i),live=s==='open';
+  const b=(k,label,on,cls)=>`<button class="${cls||''}${on?' on':''}" data-q="${k}" data-qi="${i.id}">${label}</button>`;
+  return `<div class="stg">${[1,2,3].map(n=>b(n,n+'. kolo',live&&r===n)).join('')}${b('offer','Nabídka',s==='offer'||s==='accepted','of')}${b('end','Nepokračuju dál',s==='ended','end')}</div>`;
+}
+function toast(t){let el=$('#toast');if(!el){el=document.createElement('div');el.id='toast';el.className='toast';document.body.appendChild(el)}el.textContent=t;el.classList.add('on');clearTimeout(toast.t);toast.t=setTimeout(()=>el.classList.remove('on'),2200)}
 const RES={'':'— čeká se —',pass:'Postupuju dál',fail:'Neúspěch',offer:'Nabídka'};
 const WM={office:['Kancelář','wm-o'],hybrid:['Hybrid','wm-h'],remote:['Full remote','wm-r']};
 let items=[],editing=null,col=null,mode='local';
@@ -277,18 +298,20 @@ async function remove(id){
 function render(){
   const q=$('#q').value.toLowerCase(),f=$('#f').value,fc=$('#fc').value,fm=$('#fm').value;
   const open=items.filter(i=>i.status==='open').length;
-  const iv=items.reduce((n,i)=>n+(i.rounds||[]).filter(r=>r.date||r.form).length,0);
+  const iv=items.filter(i=>reached(i)>=1).length;
   const offers=items.filter(i=>i.status==='offer'||i.status==='accepted').length;
-  $('#stats').innerHTML=[[items.length,'oslovených'],[open,'probíhá'],[iv,'pohovorů'],[offers,'nabídek']]
+  $('#stats').innerHTML=[[items.length,'oslovených'],[open,'probíhá'],[iv,'v kolech'],[offers,'nabídek']]
     .map(([n,l],k)=>`<div class="stat st${k}"><b>${n}</b><span>${l}</span></div>`).join('');
   drawCharts();
+  [...document.querySelectorAll('#stats .stat')].forEach((el,k)=>{const v=['','open','iv','offer'][k];el.dataset.flt=v;el.setAttribute('role','button');el.tabIndex=0;el.classList.toggle('on',v===f)});
   let list=items.filter(i=>{
     if(fc&&!(i.contract===fc||i.contract==='both'))return false;
     if(fm&&i.workmode!==fm)return false;
     if(q&&!((i.name||'')+(i.pos||'')+(i.note||'')).toLowerCase().includes(q))return false;
     if(f==='open')return i.status==='open';
+    if(f==='iv')return reached(i)>=1;
     if(f==='offer')return i.status==='offer'||i.status==='accepted';
-    if(f==='no')return i.status==='rejected'||i.status==='declined';
+    if(f==='no')return i.status==='rejected'||i.status==='declined'||i.status==='ended';
     return true;
   }).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
   if(!list.length){$('#list').innerHTML=`<div class="empty">${items.length?'Nic nenalezeno.':'Zatím tu nic není. Klikni na „+ Přidat“.'}</div>`;return}
@@ -299,8 +322,9 @@ function render(){
       .map(({r,n})=>`<div><i>${n}. kolo:</i> ${r.form==='osobne'?'osobně':r.form==='online'?'online':'—'}${r.date?' · '+fmtD(r.date):''}${r.result?' · <b>'+RES[r.result]+'</b>':''}</div>`).join('');
     return `<div class="item s-${i.status||'open'}">
       <div class="top"><div><div class="name">${esc(i.name)}</div><div class="pos">${esc(i.pos)}</div></div>
-      <span class="tag ${st[1]}">${st[0]}</span></div>
+      <span class="tag ${st[1]}">${st[0]}${(i.status||'open')==='open'&&reached(i)?' · '+reached(i)+'. kolo':''}</span></div>
       <div class="tags"><span class="tag g">${i.type==='agentura'?'Agentura':'Firma'}</span>
+      ${(i.status||'open')!=='open'&&reached(i)?`<span class="tag g">Došlo do ${reached(i)}. kola</span>`:''}
       <span class="tag g">${i.who==='them'?'Oslovili mě':'Oslovil jsem já'}</span>
       ${i.date?`<span class="tag g">${fmtD(i.date)}</span>`:''}
       ${i.contract?`<span class="tag">${{hpp:'HPP',ico:'IČO',both:'HPP i IČO'}[i.contract]}</span>`:''}
@@ -311,6 +335,7 @@ function render(){
       ${replyHtml(replyOf(i.contact))}
       ${i.research?`<details class="rs"><summary>Research o firmě</summary><div>${esc(i.research).replace(/\n/g,'<br>')}</div></details>`:''}
       ${i.next||i.nextDate?`<div class="next ${late?'late':''}"><b>Další krok:</b> ${esc(i.next)}${i.nextDate?' — '+fmtD(i.nextDate):''}${late?' (po termínu)':''}</div>`:''}
+      ${stageBtns(i)}
       <div class="act"><button data-e="${i.id}">Upravit</button><button class="del" data-d="${i.id}">Smazat</button></div>
     </div>`}).join('');
 }
@@ -322,7 +347,7 @@ function drawCharts(){
   const el=$('#chartBody');if(!el)return;
   if(!items.length){el.innerHTML='<div class="empty">Zatím není co zobrazit.</div>';return}
   const rd=(i,n)=>{const r=(i.rounds||[])[n]||{};return r.form||r.date||r.result};
-  const funnel=[['Osloveno',items.length],['1. kolo',items.filter(i=>rd(i,0)).length],['2. kolo',items.filter(i=>rd(i,1)).length],['3. kolo',items.filter(i=>rd(i,2)).length],['Nabídka',items.filter(i=>i.status==='offer'||i.status==='accepted').length]];
+  const funnel=[['Osloveno',items.length],['1. kolo',items.filter(i=>reached(i)>=1).length],['2. kolo',items.filter(i=>reached(i)>=2).length],['3. kolo',items.filter(i=>reached(i)>=3).length],['Nabídka',items.filter(i=>i.status==='offer'||i.status==='accepted').length]];
   const wk=[];let m=new Date(monday(today)+'T12:00:00');
   for(let k=0;k<8;k++){wk.unshift(m.toISOString().slice(0,10));m.setDate(m.getDate()-7)}
   const weekly=wk.map(w=>{const d=w.split('-');return [`${+d[2]}. ${+d[1]}.`,items.filter(i=>i.date&&monday(i.date)===w).length]});
@@ -375,7 +400,7 @@ function openForm(it){
   $('#fDate').value=it.date||today;$('#fWho').value=it.who||'me';
   $('#fName').value=it.name||'';$('#fType').value=it.type||'firma';
   $('#fPos').value=it.pos||'';$('#fContact').value=it.contact||'';$('#fContract').value=it.contract||'';$('#fMode').value=it.workmode||'';$('#fOutcome').value=it.outcome||'';
-  $('#fStatus').value=it.status||'open';$('#fSalary').value=it.salary||'';
+  $('#fStatus').value=it.status||'open';$('#fStage').value=String(reached(it));$('#fSalary').value=it.salary||'';
   $('#fNext').value=it.next||'';$('#fNextDate').value=it.nextDate||'';$('#fNote').value=it.note||'';$('#fResearch').value=it.research||'';
   const rs=it.rounds||[];
   $('#rounds').innerHTML=[0,1,2].map(n=>roundHtml(n+1,rs[n])).join('');
@@ -389,7 +414,7 @@ async function save(){
     const o={};el.querySelectorAll('[data-r]').forEach(x=>o[x.dataset.r]=x.value);return o});
   const old=items.find(x=>x.id===editing)||{};
   const it={...old,id:editing||uid(),date:$('#fDate').value,who:$('#fWho').value,name,type:$('#fType').value,
-    pos:$('#fPos').value.trim(),contract:$('#fContract').value,workmode:$('#fMode').value,outcome:$('#fOutcome').value,contact:$('#fContact').value.trim(),rounds,status:$('#fStatus').value,
+    pos:$('#fPos').value.trim(),contract:$('#fContract').value,workmode:$('#fMode').value,outcome:$('#fOutcome').value,contact:$('#fContact').value.trim(),rounds,stage:+$('#fStage').value,status:$('#fStatus').value,
     salary:$('#fSalary').value,next:$('#fNext').value.trim(),nextDate:$('#fNextDate').value,note:$('#fNote').value.trim(),research:$('#fResearch').value.trim()};
   closeForm();await put(it);
 }
@@ -407,6 +432,17 @@ $('#list').addEventListener('click',e=>{
     else{e.target.dataset.armed=1;e.target.textContent='Opravdu smazat?';setTimeout(()=>{e.target.dataset.armed='';e.target.textContent='Smazat'},3000)}
   }
 });
+async function quick(id,k){
+  const it=items.find(x=>x.id===id);if(!it)return;
+  const o={...it},s=o.status||'open',r=reached(o);
+  if(k==='end')o.status=s==='ended'?'open':'ended';
+  else if(k==='offer')o.status=(s==='offer'||s==='accepted')?'open':'offer';
+  else{const n=+k;o.stage=(s==='open'&&r===n)?n-1:n;o.status='open'}
+  const lbl=o.status==='ended'?'nepokračuješ dál':o.status==='offer'?'nabídka':reached(o)&&o.status==='open'?reached(o)+'. kolo':'probíhá';
+  await put(o);toast((o.name||'Firma')+': '+lbl);
+}
+$('#list').addEventListener('click',e=>{const b=e.target.closest('[data-q]');if(b)quick(b.dataset.qi,b.dataset.q)});
+$('#stats').addEventListener('click',e=>{const t=e.target.closest('.stat');if(!t)return;const v=t.dataset.flt||'';$('#f').value=($('#f').value===v&&v!=='')?'':v;render();const bar=document.querySelector('#viewApps .bar');if(bar)bar.scrollIntoView({behavior:'smooth',block:'start'})});
 /* ---------- inzeráty a hledání ---------- */
 const DEFAULT_SEARCHES=[
  {id:'s1',portal:'jobs',name:'Obchod – Praha',kw:'key account manager, account manager, sales manager, obchodník, business development manager',loc:'Praha',radius:20,salary:75000,remote:false},
