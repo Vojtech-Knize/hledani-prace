@@ -88,6 +88,8 @@ button.pri{background:linear-gradient(135deg,#4f46e5,#0ea5e9);border-color:trans
 #stats .stat{cursor:pointer;user-select:none;transition:transform .08s}
 #stats .stat:active{transform:scale(.97)}
 #stats .stat.on{outline:2px solid var(--acc);outline-offset:-2px}
+#jstats [data-app]{cursor:pointer;user-select:none}
+#jstats .stat.on{outline:2px solid var(--acc);outline-offset:-2px}
 .stg{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
 .stg button{padding:6px 10px;font-size:13px}
 .stg button.on{background:var(--acc);border-color:var(--acc);color:#fff;font-weight:600}
@@ -212,6 +214,7 @@ button.pri{background:linear-gradient(135deg,#4f46e5,#0ea5e9);border-color:trans
       </select></div>
     <div><label>Požadovaný fix (Kč / měsíc)</label><input type="number" id="fSalary" inputmode="numeric" placeholder="např. 70000"></div>
   </div>
+  <label>Plat nabízený firmou</label><input id="fOffer" placeholder="např. 90 000 + bonusy">
   <div class="two">
     <div><label>Další krok</label><input id="fNext" placeholder="např. čekám na zpětnou vazbu"></div>
     <div><label>Kdy (další krok)</label><input type="date" id="fNextDate"></div>
@@ -258,7 +261,7 @@ function stageBtns(i){
 function toast(t){let el=$('#toast');if(!el){el=document.createElement('div');el.id='toast';el.className='toast';document.body.appendChild(el)}el.textContent=t;el.classList.add('on');clearTimeout(toast.t);toast.t=setTimeout(()=>el.classList.remove('on'),2200)}
 const RES={'':'— čeká se —',pass:'Postupuju dál',fail:'Neúspěch',offer:'Nabídka'};
 const WM={office:['Kancelář','wm-o'],hybrid:['Hybrid','wm-h'],remote:['Full remote','wm-r']};
-let items=[],editing=null,col=null,mode='local';
+let pendingJob=null,items=[],editing=null,col=null,mode='local';
 const today=new Date().toISOString().slice(0,10);
 
 /* ---------- storage ---------- */
@@ -276,7 +279,7 @@ async function initStore(){
         const arr=[];
         const docs=snap.docs||[];
         docs.forEach(d=>{const v=typeof d.data==='function'?d.data():d;if(v&&v.kind==='jobstate'){jobState=normState(v);renderJobs();renderSearch()}else if(v&&v.id)arr.push(v)});
-        items=arr;render();
+        items=arr;render();renderJobs();
       },()=>{});
       return;
     }
@@ -287,11 +290,11 @@ async function initStore(){
 }
 async function put(it){
   if(mode==='db'){try{await col.doc(it.id).set(it)}catch(e){$('#sync').textContent='Chyba ukládání, zkus znovu'}}
-  else{const i=items.findIndex(x=>x.id===it.id);if(i>=0)items[i]=it;else items.push(it);lsSave();render()}
+  else{const i=items.findIndex(x=>x.id===it.id);if(i>=0)items[i]=it;else items.push(it);lsSave();render();renderJobs()}
 }
 async function remove(id){
   if(mode==='db'){try{await col.doc(id).delete()}catch(e){}}
-  else{items=items.filter(x=>x.id!==id);lsSave();render()}
+  else{items=items.filter(x=>x.id!==id);lsSave();render();renderJobs()}
 }
 
 /* ---------- render ---------- */
@@ -330,7 +333,7 @@ function render(){
       ${i.contract?`<span class="tag">${{hpp:'HPP',ico:'IČO',both:'HPP i IČO'}[i.contract]}</span>`:''}
       ${i.outcome==='offer'?`<span class="tag ok">Nabídka</span>`:i.outcome==='fuck'?`<span class="tag bad">Fuck</span>`:''}
       ${i.workmode&&WM[i.workmode]?`<span class="tag ${WM[i.workmode][1]}">${WM[i.workmode][0]}</span>`:''}
-      ${i.salary?`<span class="tag">Fix: ${money(i.salary)}</span>`:''}</div>
+      ${i.salary?`<span class="tag">Fix: ${money(i.salary)}</span>`:''}${i.payOffered?`<span class="tag ok">Nabízejí: ${esc(i.payOffered)}</span>`:''}</div>
       <div class="rows">${rounds}${i.contact?`<div><i>Kontakt:</i> ${esc(i.contact)}</div>`:''}${i.note?`<div><i>Poznámka:</i> ${esc(i.note)}</div>`:''}</div>
       ${replyHtml(replyOf(i.contact))}
       ${hasRs(i)?`<details class="rs" data-rsd="${i.id}"><summary>Research o firmě</summary><div>${esc(i.research).replace(/\n/g,'<br>')}</div></details>`:`<div class="act"><button data-rs="${i.id}">Doplnit research o firmě</button></div>`}
@@ -526,7 +529,7 @@ function openForm(it){
   $('#fName').value=it.name||'';$('#fType').value=it.type||'firma';
   $('#fPos').value=it.pos||'';$('#fContact').value=it.contact||'';$('#fContract').value=it.contract||'';$('#fMode').value=it.workmode||'';$('#fOutcome').value=it.outcome||'';
   $('#fStatus').value=it.status||'open';$('#fStage').value=String(reached(it));$('#fSalary').value=it.salary||'';
-  $('#fNext').value=it.next||'';$('#fNextDate').value=it.nextDate||'';$('#fNote').value=it.note||'';$('#fResearch').value=hasRs(it)?it.research:'';
+  $('#fOffer').value=it.payOffered||'';pendingJob=null;$('#fNext').value=it.next||'';$('#fNextDate').value=it.nextDate||'';$('#fNote').value=it.note||'';$('#fResearch').value=hasRs(it)?it.research:'';
   const rs=it.rounds||[];
   $('#rounds').innerHTML=[0,1,2].map(n=>roundHtml(n+1,rs[n])).join('');
   $('#m').classList.add('on');
@@ -540,7 +543,8 @@ async function save(){
   const old=items.find(x=>x.id===editing)||{};
   const it={...old,id:editing||uid(),date:$('#fDate').value,who:$('#fWho').value,name,type:$('#fType').value,
     pos:$('#fPos').value.trim(),contract:$('#fContract').value,workmode:$('#fMode').value,outcome:$('#fOutcome').value,contact:$('#fContact').value.trim(),rounds,stage:+$('#fStage').value,status:$('#fStatus').value,
-    salary:$('#fSalary').value,next:$('#fNext').value.trim(),nextDate:$('#fNextDate').value,note:$('#fNote').value.trim(),research:$('#fResearch').value.trim()};
+    salary:$('#fSalary').value,payOffered:$('#fOffer').value.trim(),next:$('#fNext').value.trim(),nextDate:$('#fNextDate').value,note:$('#fNote').value.trim(),research:$('#fResearch').value.trim()};
+  if(pendingJob){jobState.tracked[pendingJob]=it.id;persistJobState();pendingJob=null}
   closeForm();await put(it);
 }
 
@@ -611,6 +615,21 @@ async function trackJob(j){
   jobState.tracked[j.id]=it.id;persistJobState();
   await put(it);flash('Záznam přidán na záložku Osloveno'+(it.research?' i s researchem':''));
 }
+/* Záznam k inzerátu = záznam ze záložky Moje oslovení; údaje se ukládají jen na jednom místě. */
+function recordOf(j){return items.find(x=>x.id===jobState.tracked[j.id])||items.find(x=>x.contact&&j.url&&x.contact.includes(j.url))}
+function recordHtml(r){
+  if(!r)return '';
+  const rounds=(r.rounds||[]).map((x,n)=>x&&(x.form||x.date||x.result)?`<div><i>${n+1}. kolo:</i> ${x.form==='osobne'?'osobně':x.form==='online'?'online':'—'}${x.date?' · '+fmtD(x.date):''}${x.result?' · <b>'+RES[x.result]+'</b>':''}</div>`:'').join('');
+  const body=rounds+(r.next||r.nextDate?`<div><i>Další krok:</i> ${esc(r.next)}${r.nextDate?' — '+fmtD(r.nextDate):''}</div>`:'')+(r.contact?`<div><i>Kontakt:</i> ${esc(r.contact)}</div>`:'')+(r.note?`<div><i>Poznámky:</i> ${nl(r.note)}</div>`:'');
+  return body?`<details class="rs"><summary>Můj záznam</summary><div>${body}</div></details>`:'';
+}
+function editJob(id){
+  const j=allJobs().find(x=>x.id===id);if(!j)return;
+  const r=recordOf(j);
+  if(r){openForm(r);return}
+  openForm({...jobToItem(j),date:jobState.applied[id]||today});
+  pendingJob=id;$('#mt').textContent='Záznam k inzerátu';
+}
 const FU_DAYS=7;
 function fuDays(id){const S=jobState;if(!S.applied[id]||S.replied[id])return -1;const b=S.fu[id]||S.applied[id];return Math.floor((Date.parse(today)-Date.parse(b))/86400000)}
 function fuDue(id){return fuDays(id)>=FU_DAYS}
@@ -624,18 +643,19 @@ function showTab(t){['apps','jobs','search'].forEach(k=>{$('#view'+k[0].toUpperC
   document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));
   $('#add').style.display=t==='apps'?'':'none';renderBackup()}
 function jobCard(j){
-  const S=jobState,ap=S.applied[j.id],nw=!S.seen[j.id]&&!j.arch,wm=j.mode&&WM[j.mode];
+  const S=jobState,ap=S.applied[j.id],rec=ap?recordOf(j):null,nw=!S.seen[j.id]&&!j.arch,wm=j.mode&&WM[j.mode];
   return `<div class="item job ${ap?'j-app':''} ${nw&&!ap?'j-new':''}">
   <div class="top"><div><div class="name">${esc(j.title)}</div><div class="pos">${esc(j.company)}${j.loc?' · '+esc(j.loc):''}</div></div>
   <span class="tag ${ap?'ok':nw?'new':'g'}">${ap?'Odpovězeno':nw?'Nové':'Viděno'}</span></div>
-  <div class="tags"><span class="tag ${SRCC[j.src]||'g'}">Zdroj: ${SRC[j.src]||'Jiný portál'}</span>${j.salary?`<span class="tag">${esc(j.salary)}</span>`:'<span class="tag g">plat neuveden</span>'}${j.fit?`<span class="tag ${j.fit==='A'?'ok':j.fit==='B'?'new':'g'}" title="${esc(j.why||'')}">Shoda ${j.fit}</span>`:''}${wm?`<span class="tag ${wm[1]}">${wm[0]}</span>`:''}${ap?`<span class="tag ok">odpovězeno ${fmtD(ap)}</span>`:''}${S.replied[j.id]?`<span class="tag ok">ozvali se ${fmtD(S.replied[j.id])}</span>`:''}${fuDue(j.id)?`<span class="tag" style="background:#fde68a;color:#92400e">Ozvi se znovu · ${fuDays(j.id)} dní bez odpovědi</span>`:''}</div>
+  <div class="tags"><span class="tag ${SRCC[j.src]||'g'}">Zdroj: ${SRC[j.src]||'Jiný portál'}</span>${j.salary?`<span class="tag">${esc(j.salary)}</span>`:'<span class="tag g">plat neuveden</span>'}${j.fit?`<span class="tag ${j.fit==='A'?'ok':j.fit==='B'?'new':'g'}" title="${esc(j.why||'')}">Shoda ${j.fit}</span>`:''}${wm?`<span class="tag ${wm[1]}">${wm[0]}</span>`:''}${ap?`<span class="tag ok">odpovězeno ${fmtD(ap)}</span>`:''}${rec&&rec.payOffered?`<span class="tag ok">Nabízejí: ${esc(rec.payOffered)}</span>`:''}${rec&&rec.salary?`<span class="tag">Můj fix: ${money(rec.salary)}</span>`:''}${S.replied[j.id]?`<span class="tag ok">ozvali se ${fmtD(S.replied[j.id])}</span>`:''}${fuDue(j.id)?`<span class="tag" style="background:#fde68a;color:#92400e">Ozvi se znovu · ${fuDays(j.id)} dní bez odpovědi</span>`:''}</div>
   ${j.why?`<div class="rows"><div><i>Proč:</i> ${esc(j.why)}</div></div>`:''}${j.note?`<div class="rows"><div><i>Poznámka:</i> ${esc(j.note)}</div></div>`:''}
+  ${recordHtml(rec)}
   ${replyHtml(replyOf(j.id))}
   <div class="act"><a class="lnk" href="${esc(j.url)}" target="_blank" rel="noopener" data-open="${esc(j.id)}">Otevřít inzerát</a>
   <label class="ck"><input type="checkbox" data-ap="${esc(j.id)}"${ap?' checked':''}> Odpověděl jsem</label>
   ${ap?`<label class="ck"><input type="checkbox" data-rp="${esc(j.id)}"${S.replied[j.id]?' checked':''}> Ozvali se</label>`:''}
   ${fuDue(j.id)?`<button data-fu="${esc(j.id)}">Follow-up</button><label class="ck"><input type="checkbox" data-fud="${esc(j.id)}"> Follow-up poslán</label>`:''}
-  <button data-reply="${esc(j.id)}">Odpověď</button><button data-adopt="${esc(j.id)}">Do oslovení</button><button data-hide="${esc(j.id)}">${S.hid[j.id]?'Vrátit':'Skrýt'}</button><button data-del="${esc(j.id)}">Smazat</button></div></div>`;
+  ${ap?`<button class="pri" data-edit="${esc(j.id)}">Upravit</button>`:''}<button data-reply="${esc(j.id)}">Odpověď</button><button data-adopt="${esc(j.id)}">Do oslovení</button><button data-hide="${esc(j.id)}">${S.hid[j.id]?'Vrátit':'Skrýt'}</button><button data-del="${esc(j.id)}">Smazat</button></div></div>`;
 }
 function renderJobs(){
   const box=$('#jobsBody');if(!box)return;
@@ -644,7 +664,8 @@ function renderJobs(){
   const nNew=actAB.filter(j=>!S.seen[j.id]&&!j.arch).length,nApp=act.filter(j=>S.applied[j.id]).length,nTodo=actAB.filter(j=>!S.applied[j.id]).length;
   $('#newBadge').textContent=nNew||'';
   const nAB=act.filter(j=>j.fit!=='C').length;
-  $('#jstats').innerHTML=[['<span style="font-size:22px;color:inherit">'+nAB+'</span> <span style="font-size:14px">/ '+act.length+'</span>','A + B / všech vč. C'],[nNew,'nových (A + B)'],[nTodo,'k odpovědi (A + B)'],[nApp,'odpovězeno']].map(([n,l],k)=>`<div class="stat st${k}"><b>${n}</b><span>${l}</span></div>`).join('');
+  $('#jstats').innerHTML=[['<span style="font-size:22px;color:inherit">'+nAB+'</span> <span style="font-size:14px">/ '+act.length+'</span>','A + B / všech vč. C'],[nNew,'nových (A + B)'],[nTodo,'k odpovědi (A + B)'],[nApp,'odpovězeno']].map(([n,l],k)=>`<div class="stat st${k}"${k===3?` data-app="1" role="button" tabindex="0"`:''}><b>${n}</b><span>${l}</span></div>`).join('');
+  if($('#js').value==='app')$('#jstats [data-app]').classList.add('on');
   const q=$('#jq').value.toLowerCase(),fs=$('#js').value,fp=$('#jp').value,ff=$('#jf').value||'AB';
   const fitOk=j=>ff==='ALL'||(ff==='AB'?(j.fit!=='C'):j.fit===ff);
   const nFu=act.filter(j=>fuDue(j.id)).length;
@@ -661,15 +682,15 @@ function renderJobs(){
     if(fs==='fu')return fuDue(j.id);
     return true;
   });
-  const list=fs==='hid'?base:base.filter(fitOk);
+  const list=(fs==='hid'||fs==='app')?base:base.filter(fitOk);
   const nFitHid=base.length-list.length;
   const fitNote=(nFitHid&&fs!=='hid')?'<div class="empty" style="padding:10px 12px;margin:0 0 10px;text-align:left">Skryto kvůli filtru shody: <b>'+nFitHid+'</b> inzerátů. <a href="#" id="jfAll">Zobrazit všechny</a></div>':'';
   if(!list.length){box.innerHTML=fitNote+'<div class="empty">'+(all.length?'Nic nenalezeno.':(jobsInfo.error||'Zatím tu nejsou žádné inzeráty.'))+'</div>'}
   else{
-    const days={};list.forEach(j=>{(days[j.first||'']=days[j.first||'']||[]).push(j)});
+    const days={},dayOf=j=>(fs==='app'?S.applied[j.id]:j.first)||'';list.forEach(j=>{(days[dayOf(j)]=days[dayOf(j)]||[]).push(j)});
     box.innerHTML=fitNote+Object.keys(days).sort().reverse().map(d=>{
       const g=days[d],na=g.filter(j=>S.applied[j.id]).length;
-      return `<div class="dh"><b>${d===today?'Dnes · ':''}${d?fmtD(d):'Bez data'}</b><span>${g.length} inzerátů · ${na} odpovězeno</span></div>`+g.slice().sort((x,y)=>(x.fit||'Z').localeCompare(y.fit||'Z')).map(jobCard).join('');
+      return `<div class="dh"><b>${fs==='app'?'Odpovězeno ':''}${d===today?(fs==='app'?'dnes · ':'Dnes · '):''}${d?fmtD(d):'Bez data'}</b><span>${fs==='app'?g.length+(g.length===1?' inzerát':g.length<5?' inzeráty':' inzerátů'):g.length+' inzerátů · '+na+' odpovězeno'}</span></div>`+g.slice().sort((x,y)=>(x.fit||'Z').localeCompare(y.fit||'Z')).map(jobCard).join('');
     }).join('');
   }
   $('#jinfo').textContent=jobsInfo.updated?'Seznam naposledy aktualizován '+fmtD(jobsInfo.updated)+'.':(jobsInfo.error||'');
@@ -727,6 +748,7 @@ async function initJobs(){
 }
 $('#tabs').onclick=e=>{const t=e.target.closest('[data-t]');if(t)showTab(t.dataset.t)};
 try{const sv=localStorage.getItem('hp_jfit');if(sv&&[...$('#jf').options].some(o=>o.value===sv))$('#jf').value=sv}catch(e){}
+$('#jstats').addEventListener('click',e=>{if(!e.target.closest('[data-app]'))return;$('#js').value=$('#js').value==='app'?'':'app';renderJobs();if($('#js').value==='app')$('#jobsBody').scrollIntoView({behavior:'smooth',block:'start'})});
 $('#jq').oninput=renderJobs;$('#js').onchange=renderJobs;$('#jp').onchange=renderJobs;
 $('#jf').onchange=()=>{try{localStorage.setItem('hp_jfit',$('#jf').value)}catch(e){}renderJobs()};
 $('#jobsBody').addEventListener('click',e=>{if(e.target&&e.target.id==='jfAll'){e.preventDefault();$('#jf').value='ALL';try{localStorage.setItem('hp_jfit','ALL')}catch(_){}renderJobs()}});
@@ -746,6 +768,7 @@ $('#sm').addEventListener('click',e=>{if(e.target.id==='sm')$('#sm').classList.r
 $('#jm').addEventListener('click',e=>{if(e.target.id==='jm')$('#jm').classList.remove('on')});
 $('#jobsBody').addEventListener('click',e=>{
   const g=a=>{const el=e.target.closest('['+a+']');return el?el.getAttribute(a):null};
+  const ed=g('data-edit');if(ed){editJob(ed);return}
   const o=g('data-open'),h=g('data-hide'),ad=g('data-adopt'),rp=g('data-reply'),fu=g('data-fu'),dl=g('data-del');
   if(dl){const b=e.target.closest('[data-del]');
     if(b.dataset.armed){jobState.del[dl]=1;jobState.manual=jobState.manual.filter(x=>x.id!==dl);delete jobState.hid[dl];saveJobState();flash('Inzerát smazán')}
