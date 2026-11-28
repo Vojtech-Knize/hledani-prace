@@ -370,18 +370,123 @@ function drawCharts(){
 }
 
 /* ---------- research ---------- */
+/* Mimo claude.ai (aplikace z GitHubu, telefon) se research skládá zdarma z veřejných zdrojů: Wikidata, Wikipedie a ARES. */
+const ARES='https://ares.gov.cz/ekonomicke-subjekty-v-be/rest/',WD='https://www.wikidata.org/w/api.php?format=json&origin=*&';
+async function getJson(url,opt){
+  const c=new AbortController(),t=setTimeout(()=>c.abort(),12000);
+  try{const r=await fetch(url,{...opt,signal:c.signal});return await r.json()}finally{clearTimeout(t)}
+}
+const normName=s=>(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'')
+  .replace(/[,\s]+(spol\.?\s*s\s*r\.?\s*o\.?|s\.?\s*r\.?\s*o\.?|a\.\s*s\.?|a\s?s|o[uü]|se|k\.\s*s\.|v\.\s*o\.\s*s\.|z\.\s*s\.|inc\.?|ltd\.?|llc|gmbh|plc)\s*$/,'')
+  .replace(/[^a-z0-9]+/g,' ').trim();
+async function wdFind(name){
+  const q=encodeURIComponent(name.replace(/[,\s]+(spol\.\s*s\s*r\.\s*o\.|s\.\s*r\.\s*o\.|a\.\s*s\.)\s*$/i,''));
+  const found=await Promise.all(['cs','en'].map(l=>getJson(WD+'action=wbsearchentities&type=item&limit=20&language='+l+'&search='+q)));
+  const ids=[...new Set(found.flatMap(f=>(f.search||[]).map(x=>x.id)))].slice(0,40);
+  if(!ids.length)return null;
+  const e=(await getJson(WD+'action=wbgetentities&props=claims|sitelinks|labels|descriptions|aliases&languages=cs|en&ids='+ids.join('|'))).entities||{};
+  const n=normName(name);
+  const exact=x=>Object.values(x.labels||{}).some(v=>normName(v.value)===n)?1:0;
+  return ids.map(i=>e[i]).filter(x=>{
+    if(!x||!x.claims||!['P452','P1128','P2139','P1454','P159'].some(p=>x.claims[p]))return false;
+    const names=[...Object.values(x.labels||{}),...Object.values(x.aliases||{}).flat()].map(v=>normName(v.value));
+    return names.some(v=>v===n||v.startsWith(n+' '));
+  }).sort((a,b)=>exact(b)-exact(a)||Object.keys(b.sitelinks||{}).length-Object.keys(a.sitelinks||{}).length)[0]||null;
+}
+function wdBest(x,p){
+  const all=(x.claims[p]||[]).filter(c=>c.rank!=='deprecated'&&c.mainsnak.datavalue&&!(c.qualifiers||{}).P582);
+  const date=c=>((((c.qualifiers||{}).P585||[])[0]||{}).datavalue||{value:{time:''}}).value.time;
+  const pref=all.filter(c=>c.rank==='preferred');
+  const c=(pref.length?pref:all).sort((a,b)=>date(b).localeCompare(date(a)))[0];
+  return c?{v:c.mainsnak.datavalue.value,year:date(c).slice(1,5),q:c.qualifiers||{}}:null;
+}
+async function wdInfo(x){
+  const hq=wdBest(x,'P159'),land=wdBest(x,'P17'),emp=wdBest(x,'P1128'),rev=wdBest(x,'P2139'),born=wdBest(x,'P571'),web=wdBest(x,'P856'),own=wdBest(x,'P749');
+  const hqLand=hq&&hq.q.P17&&hq.q.P17[0].datavalue?hq.q.P17[0].datavalue.value:land&&land.v;
+  const unit=rev&&String(rev.v.unit||'').split('/').pop();
+  const ref=[hq&&hq.v.id,hqLand&&hqLand.id,/^Q/.test(unit||'')?unit:null,own&&own.v.id].filter(Boolean);
+  let L={};
+  if(ref.length)L=(await getJson(WD+'action=wbgetentities&props=labels&languages=cs|en&ids='+[...new Set(ref)].join('|'))).entities||{};
+  const lab=id=>{const l=(L[id]||{}).labels||{};return (l.cs||l.en||{}).value||''};
+  let what='';
+  for(const lang of ['cs','en']){
+    const sl=(x.sitelinks||{})[lang+'wiki'];if(!sl||what)continue;
+    try{const j=await getJson('https://'+lang+'.wikipedia.org/w/api.php?action=query&prop=extracts&exintro=1&explaintext=1&exsentences=2&redirects=1&format=json&origin=*&titles='+encodeURIComponent(sl.title));
+      what=(Object.values(j.query.pages)[0].extract||'').replace(/\s+/g,' ').trim()}catch(e){}
+    if(lang==='cs'&&!what&&(x.descriptions||{}).cs)what=x.descriptions.cs.value;
+  }
+  const d=x.descriptions||{},lbl=((x.labels||{}).cs||(x.labels||{}).en||{}).value||'';
+  const big=n=>{const u=n>=1e9?[1e9,' mld.']:n>=1e6?[1e6,' mil.']:[1,''];return (n/u[0]).toLocaleString('cs-CZ',{maximumFractionDigits:1})+u[1]};
+  const cur=u=>({'euro':'EUR','americký dolar':'USD','česká koruna':'Kč'})[u]||u;
+  const hqName=hq?lab(hq.v.id):'';
+  return {label:lbl,desc:(d.cs||d.en||{}).value||'',czech:!!(hqLand&&hqLand.id==='Q213'),
+    what:what||(d.cs||d.en||{}).value||'',
+    seat:[hqName,hqLand&&lab(hqLand.id)].filter(Boolean).join(', '),
+    prague:/^(Praha|Prague)/.test(hqName),
+    emp:emp?'cca '+Math.abs(+emp.v.amount).toLocaleString('cs-CZ')+(emp.year?' ('+emp.year+')':''):'',
+    rev:rev?'cca '+big(Math.abs(+rev.v.amount))+' '+cur(lab(unit))+(rev.year?' ('+rev.year+')':''):'',
+    born:born?born.v.time.slice(1,5):'',web:web?web.v:'',owner:own?lab(own.v.id):''};
+}
+const ARES_EMP={'110':'bez zaměstnanců','120':'1–5','130':'6–9','210':'10–19','220':'20–24','230':'25–49','240':'50–99','310':'100–199','320':'200–249','330':'250–499','340':'500–999','410':'1 000–1 499','420':'1 500–1 999','430':'2 000–2 499','440':'2 500–2 999','450':'3 000–3 999','460':'4 000–4 999','470':'5 000–9 999'};
+async function aresFind(name){
+  const ico=(name.match(/^\s*(\d{8})\s*$/)||[])[1];
+  let list=[],tooMany=false;
+  if(ico){const x=await getJson(ARES+'ekonomicke-subjekty/'+ico);if(x.ico)list=[x]}
+  else{const j=await getJson(ARES+'ekonomicke-subjekty/vyhledat',{method:'POST',headers:{'Content-Type':'application/json',Accept:'application/json'},body:JSON.stringify({obchodniJmeno:name,pocet:100})});
+    list=(j.ekonomickeSubjekty||[]).filter(x=>x.ico&&!x.datumZaniku);tooMany=j.subKod==='VYSTUP_PRILIS_MNOHO_VYSLEDKU'}
+  const exact=ico?list:list.filter(x=>normName(x.obchodniJmeno)===normName(name));
+  const hit=exact.length===1?exact[0]:null;
+  if(!hit)return {hit:null,others:(exact.length?exact:list).slice(0,4),tooMany};
+  let emp='';
+  try{const r=await getJson(ARES+'ekonomicke-subjekty-res/'+hit.ico);
+    const z=(r.zaznamy||[]).find(z=>z.primarniZaznam)||(r.zaznamy||[])[0];
+    const k=z&&z.statistickeUdaje&&z.statistickeUdaje.kategoriePoctuPracovniku;
+    emp=ARES_EMP[k]?ARES_EMP[k]+(k==='110'?'':' zaměstnanců')+' (rozpětí z ARES)':(+k>=510?'10 000 a více (z ARES)':'')}catch(e){}
+  const s=hit.sidlo||{};
+  return {hit:{name:hit.obchodniJmeno,ico:hit.ico,seat:s.textovaAdresa||s.nazevObce||'',prague:s.nazevObce==='Praha',born:(hit.datumVzniku||'').slice(0,4),emp},others:[]};
+}
+async function publicResearch(name){
+  const [wr,ar]=await Promise.allSettled([wdFind(name).then(x=>x?wdInfo(x):null),aresFind(name)]);
+  if(wr.status==='rejected'&&ar.status==='rejected')throw wr.reason;
+  const w=wr.value||null,a=(ar.value||{}).hit||null,others=(ar.value||{}).others||[];
+  /* Firmu z rejstříku bereme za tutéž jen když Wikidata nic nemají nebo jde o českou firmu. */
+  const same=a&&(!w||w.czech),A=same?a:null;
+  const extra=[];
+  if(w&&w.born||A&&A.born)extra.push('založeno '+((w&&w.born)||A.born));
+  if(w&&w.owner)extra.push('mateřská firma: '+w.owner);
+  if(w&&w.web)extra.push('web: '+w.web);
+  if(A)extra.push('IČO '+A.ico);
+  const src=[w&&'Wikidata/Wikipedie',(A||a||others.length)&&'ARES'].filter(Boolean).join(', ');
+  const out=[
+    'Co dělá: '+((w&&w.what)||'nevím'),
+    'Sídlo: '+((A&&A.seat)||(w&&w.seat)||'nevím'),
+    'Počet zaměstnanců: '+((w&&w.emp)||(A&&A.emp)||'nevím'),
+    'Pobočka v Praze: '+((A&&A.prague)||(w&&w.prague)?'ano (sídlo v Praze)':'nevím'),
+    'Odhadovaný roční obrat: '+((w&&w.rev)||'nevím'),
+    'Zajímavost: '+(extra.join('; ')||'nevím')
+  ];
+  if(w)out.push('Nalezeno: '+w.label+(w.desc?' – '+w.desc:''));
+  if(a&&!same)out.push('V českém rejstříku je firma stejného názvu (ověř, zda jde o ni): '+a.name+', IČO '+a.ico+', '+a.seat);
+  if(!a&&others.length)out.push('Podobné firmy v ARES: '+others.map(x=>x.obchodniJmeno+' (IČO '+x.ico+')').join('; ')+'. Pro údaje z rejstříku napiš do názvu přesný název nebo IČO.');
+  if(!w&&!a)out.push('Firmu se nepodařilo jednoznačně najít.'+((ar.value||{}).tooMany?' Název je v rejstříku příliš obecný.':''));
+  if(wr.status==='rejected')out.push('Wikipedie/Wikidata teď neodpověděly.');
+  if(ar.status==='rejected')out.push('ARES teď neodpověděl.');
+  out.push('(Automaticky z veřejných zdrojů'+(src?': '+src:'')+'. Před pohovorem ověř.)');
+  return out.join('\n');
+}
 async function doResearch(){
   const name=$('#fName').value.trim();
   if(!name){$('#fName').focus();return}
   const btn=$('#rsBtn'),out=$('#fResearch');
   btn.disabled=true;btn.textContent='Zpracovávám…';
   try{
-    const sample=await claude.use('sample');
-    if(!sample){out.value='Doplnění research není v tomto zobrazení dostupné.';return}
+    let sample=null;
+    try{if(window.claude)sample=await window.claude.use('sample')}catch(e){}
+    if(!sample){out.value=await publicResearch(name);return}
     const typ=$('#fType').value==='agentura'?'personální agentura':'firma';
     const r=await sample(`Napiš stručný research o společnosti "${name}" (${typ}, pozice: ${$('#fPos').value||'neuvedena'}) pro uchazeče o práci v Česku. Odpověz česky, přesně v tomto formátu, každý bod na jeden řádek:\nCo dělá: ...\nSídlo: ...\nPočet zaměstnanců: ...\nPobočka v Praze: ano / ne / nevím\nOdhadovaný roční obrat: ...\nZajímavost: ...\nPiš jen to, co spolehlivě víš. U čísel uveď řádový odhad a orientačně rok. Pokud firmu neznáš nebo si nejsi jistý, napiš u daného bodu „nevím“. Nic si nevymýšlej. Bez úvodu a závěru.`);
     out.value=(r.text||'').trim()+'\n(Z mých znalostí, bez vyhledávání na webu. Před pohovorem ověř.)';
-  }catch(e){out.value=out.value||'Research se nepodařilo doplnit, zkus to znovu.'}
+  }catch(e){out.value=out.value||'Research se nepodařilo doplnit. Zkontroluj připojení k internetu a zkus to znovu.'}
   finally{btn.disabled=false;btn.textContent='Doplnit research'}
 }
 
