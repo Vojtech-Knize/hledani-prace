@@ -412,7 +412,7 @@ async function wdInfo(x){
   for(const lang of ['cs','en']){
     const sl=(x.sitelinks||{})[lang+'wiki'];if(!sl||what)continue;
     try{const j=await getJson('https://'+lang+'.wikipedia.org/w/api.php?action=query&prop=extracts&exintro=1&explaintext=1&redirects=1&format=json&origin=*&titles='+encodeURIComponent(sl.title));
-      const t=(Object.values(j.query.pages)[0].extract||'').trim().split('\n')[0].replace(/\s+/g,' ');
+      const t=(Object.values(j.query.pages)[0].extract||'').trim().split('\n')[0].replace(/\[[^\]]*\]/g,'').replace(/\s+/g,' ');
       what=t.length>400?t.slice(0,400).replace(/\s\S*$/,'')+'…':t}catch(e){}
     if(lang==='cs'&&!what&&(x.descriptions||{}).cs)what=x.descriptions.cs.value;
   }
