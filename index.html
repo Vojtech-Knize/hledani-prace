@@ -411,13 +411,14 @@ async function wdInfo(x){
   let what='';
   for(const lang of ['cs','en']){
     const sl=(x.sitelinks||{})[lang+'wiki'];if(!sl||what)continue;
-    try{const j=await getJson('https://'+lang+'.wikipedia.org/w/api.php?action=query&prop=extracts&exintro=1&explaintext=1&exsentences=2&redirects=1&format=json&origin=*&titles='+encodeURIComponent(sl.title));
-      what=(Object.values(j.query.pages)[0].extract||'').replace(/\s+/g,' ').trim()}catch(e){}
+    try{const j=await getJson('https://'+lang+'.wikipedia.org/w/api.php?action=query&prop=extracts&exintro=1&explaintext=1&redirects=1&format=json&origin=*&titles='+encodeURIComponent(sl.title));
+      const t=(Object.values(j.query.pages)[0].extract||'').trim().split('\n')[0].replace(/\s+/g,' ');
+      what=t.length>400?t.slice(0,400).replace(/\s\S*$/,'')+'…':t}catch(e){}
     if(lang==='cs'&&!what&&(x.descriptions||{}).cs)what=x.descriptions.cs.value;
   }
   const d=x.descriptions||{},lbl=((x.labels||{}).cs||(x.labels||{}).en||{}).value||'';
   const big=n=>{const u=n>=1e9?[1e9,' mld.']:n>=1e6?[1e6,' mil.']:[1,''];return (n/u[0]).toLocaleString('cs-CZ',{maximumFractionDigits:1})+u[1]};
-  const cur=u=>({'euro':'EUR','americký dolar':'USD','česká koruna':'Kč'})[u]||u;
+  const cur=u=>({'euro':'EUR','americký dolar':'USD','česká koruna':'Kč','koruna česká':'Kč'})[u]||u;
   const hqName=hq?lab(hq.v.id):'';
   return {label:lbl,desc:(d.cs||d.en||{}).value||'',czech:!!(hqLand&&hqLand.id==='Q213'),
     what:what||(d.cs||d.en||{}).value||'',
@@ -446,9 +447,11 @@ async function aresFind(name){
   return {hit:{name:hit.obchodniJmeno,ico:hit.ico,seat:s.textovaAdresa||s.nazevObce||'',prague:s.nazevObce==='Praha',born:(hit.datumVzniku||'').slice(0,4),emp},others:[]};
 }
 async function publicResearch(name){
-  const [wr,ar]=await Promise.allSettled([wdFind(name).then(x=>x?wdInfo(x):null),aresFind(name)]);
+  const [wr,ar]=await Promise.allSettled([wdFind(name).then(async x=>x?{...await wdInfo(x),exact:[...Object.values(x.labels||{}),...Object.values(x.aliases||{}).flat()].some(v=>normName(v.value)===normName(name))}:null),aresFind(name)]);
   if(wr.status==='rejected'&&ar.status==='rejected')throw wr.reason;
-  const w=wr.value||null,a=(ar.value||{}).hit||null,others=(ar.value||{}).others||[];
+  const a=(ar.value||{}).hit||null,others=(ar.value||{}).others||[];
+  /* Jen přibližná shoda na Wikidatech nesmí přebít přesnou shodu v rejstříku. */
+  const w=wr.value&&(wr.value.exact||!a)?wr.value:null;
   /* Firmu z rejstříku bereme za tutéž jen když Wikidata nic nemají nebo jde o českou firmu. */
   const same=a&&(!w||w.czech),A=same?a:null;
   const extra=[];
@@ -466,7 +469,7 @@ async function publicResearch(name){
     'Zajímavost: '+(extra.join('; ')||'nevím')
   ];
   if(w)out.push('Nalezeno: '+w.label+(w.desc?' – '+w.desc:''));
-  if(a&&!same)out.push('V českém rejstříku je firma stejného názvu (ověř, zda jde o ni): '+a.name+', IČO '+a.ico+', '+a.seat);
+  if(a&&!same&&a.name.toLowerCase().startsWith(name.toLowerCase()))out.push('V českém rejstříku je firma stejného názvu (ověř, zda jde o ni): '+a.name+', IČO '+a.ico+', '+a.seat);
   if(!a&&others.length)out.push('Podobné firmy v ARES: '+others.map(x=>x.obchodniJmeno+' (IČO '+x.ico+')').join('; ')+'. Pro údaje z rejstříku napiš do názvu přesný název nebo IČO.');
   if(!w&&!a)out.push('Firmu se nepodařilo jednoznačně najít.'+((ar.value||{}).tooMany?' Název je v rejstříku příliš obecný.':''));
   if(wr.status==='rejected')out.push('Wikipedie/Wikidata teď neodpověděly.');
