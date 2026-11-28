@@ -333,7 +333,7 @@ function render(){
       ${i.salary?`<span class="tag">Fix: ${money(i.salary)}</span>`:''}</div>
       <div class="rows">${rounds}${i.contact?`<div><i>Kontakt:</i> ${esc(i.contact)}</div>`:''}${i.note?`<div><i>Poznámka:</i> ${esc(i.note)}</div>`:''}</div>
       ${replyHtml(replyOf(i.contact))}
-      ${i.research?`<details class="rs"><summary>Research o firmě</summary><div>${esc(i.research).replace(/\n/g,'<br>')}</div></details>`:''}
+      ${hasRs(i)?`<details class="rs" data-rsd="${i.id}"><summary>Research o firmě</summary><div>${esc(i.research).replace(/\n/g,'<br>')}</div></details>`:`<div class="act"><button data-rs="${i.id}">Doplnit research o firmě</button></div>`}
       ${i.next||i.nextDate?`<div class="next ${late?'late':''}"><b>Další krok:</b> ${esc(i.next)}${i.nextDate?' — '+fmtD(i.nextDate):''}${late?' (po termínu)':''}</div>`:''}
       ${stageBtns(i)}
       <div class="act"><button data-e="${i.id}">Upravit</button><button class="del" data-d="${i.id}">Smazat</button></div>
@@ -477,20 +477,37 @@ async function publicResearch(name){
   out.push('(Automaticky z veřejných zdrojů'+(src?': '+src:'')+'. Před pohovorem ověř.)');
   return out.join('\n');
 }
+/* Starší verze ukládala do záznamu i chybovou hlášku; takový text za research nepovažujeme. */
+const RS_ERR=/^(Research se nepodařilo doplnit|Doplnění research není)/;
+const hasRs=i=>!!i.research&&!RS_ERR.test(i.research);
+const RS_FAIL='Research se nepodařilo doplnit. Zkontroluj internet a zkus to znovu.';
+async function getResearch(name,type,pos){
+  let sample=null;
+  try{if(window.claude)sample=await window.claude.use('sample')}catch(e){}
+  if(!sample)return publicResearch(name);
+    const typ=type==='agentura'?'personální agentura':'firma';
+    const r=await sample(`Napiš stručný research o společnosti "${name}" (${typ}, pozice: ${pos||'neuvedena'}) pro uchazeče o práci v Česku. Odpověz česky, přesně v tomto formátu, každý bod na jeden řádek:\nCo dělá: ...\nSídlo: ...\nPočet zaměstnanců: ...\nPobočka v Praze: ano / ne / nevím\nOdhadovaný roční obrat: ...\nZajímavost: ...\nPiš jen to, co spolehlivě víš. U čísel uveď řádový odhad a orientačně rok. Pokud firmu neznáš nebo si nejsi jistý, napiš u daného bodu „nevím“. Nic si nevymýšlej. Bez úvodu a závěru.`);
+    return (r.text||'').trim()+'\n(Z mých znalostí, bez vyhledávání na webu. Před pohovorem ověř.)';
+}
 async function doResearch(){
   const name=$('#fName').value.trim();
   if(!name){$('#fName').focus();return}
-  const btn=$('#rsBtn'),out=$('#fResearch');
+  const btn=$('#rsBtn');
+  btn.disabled=true;btn.textContent='Zpracovávám…';
+  try{$('#fResearch').value=await getResearch(name,$('#fType').value,$('#fPos').value)}
+  catch(e){toast(RS_FAIL)}
+  finally{btn.disabled=false;btn.textContent='Doplnit research'}
+}
+async function cardResearch(btn){
+  const id=btn.dataset.rs,it=items.find(x=>x.id===id);if(!it)return;
   btn.disabled=true;btn.textContent='Zpracovávám…';
   try{
-    let sample=null;
-    try{if(window.claude)sample=await window.claude.use('sample')}catch(e){}
-    if(!sample){out.value=await publicResearch(name);return}
-    const typ=$('#fType').value==='agentura'?'personální agentura':'firma';
-    const r=await sample(`Napiš stručný research o společnosti "${name}" (${typ}, pozice: ${$('#fPos').value||'neuvedena'}) pro uchazeče o práci v Česku. Odpověz česky, přesně v tomto formátu, každý bod na jeden řádek:\nCo dělá: ...\nSídlo: ...\nPočet zaměstnanců: ...\nPobočka v Praze: ano / ne / nevím\nOdhadovaný roční obrat: ...\nZajímavost: ...\nPiš jen to, co spolehlivě víš. U čísel uveď řádový odhad a orientačně rok. Pokud firmu neznáš nebo si nejsi jistý, napiš u daného bodu „nevím“. Nic si nevymýšlej. Bez úvodu a závěru.`);
-    out.value=(r.text||'').trim()+'\n(Z mých znalostí, bez vyhledávání na webu. Před pohovorem ověř.)';
-  }catch(e){out.value=out.value||'Research se nepodařilo doplnit. Zkontroluj připojení k internetu a zkus to znovu.'}
-  finally{btn.disabled=false;btn.textContent='Doplnit research'}
+    const research=await getResearch(it.name,it.type,it.pos);
+    const cur=items.find(x=>x.id===id);if(!cur)return;
+    await put({...cur,research});
+    const d=document.querySelector('#list details[data-rsd="'+id+'"]');if(d)d.open=true;
+    toast('Research uložen: '+(cur.name||'firma'));
+  }catch(e){toast(RS_FAIL);btn.disabled=false;btn.textContent='Doplnit research o firmě'}
 }
 
 /* ---------- form ---------- */
@@ -509,7 +526,7 @@ function openForm(it){
   $('#fName').value=it.name||'';$('#fType').value=it.type||'firma';
   $('#fPos').value=it.pos||'';$('#fContact').value=it.contact||'';$('#fContract').value=it.contract||'';$('#fMode').value=it.workmode||'';$('#fOutcome').value=it.outcome||'';
   $('#fStatus').value=it.status||'open';$('#fStage').value=String(reached(it));$('#fSalary').value=it.salary||'';
-  $('#fNext').value=it.next||'';$('#fNextDate').value=it.nextDate||'';$('#fNote').value=it.note||'';$('#fResearch').value=it.research||'';
+  $('#fNext').value=it.next||'';$('#fNextDate').value=it.nextDate||'';$('#fNote').value=it.note||'';$('#fResearch').value=hasRs(it)?it.research:'';
   const rs=it.rounds||[];
   $('#rounds').innerHTML=[0,1,2].map(n=>roundHtml(n+1,rs[n])).join('');
   $('#m').classList.add('on');
@@ -550,6 +567,7 @@ async function quick(id,k){
   await put(o);toast((o.name||'Firma')+': '+lbl);
 }
 $('#list').addEventListener('click',e=>{const b=e.target.closest('[data-q]');if(b)quick(b.dataset.qi,b.dataset.q)});
+$('#list').addEventListener('click',e=>{const b=e.target.closest('[data-rs]');if(b)cardResearch(b)});
 $('#stats').addEventListener('click',e=>{const t=e.target.closest('.stat');if(!t)return;const v=t.dataset.flt||'';$('#f').value=($('#f').value===v&&v!=='')?'':v;render();const bar=document.querySelector('#viewApps .bar');if(bar)bar.scrollIntoView({behavior:'smooth',block:'start'})});
 /* ---------- inzeráty a hledání ---------- */
 const DEFAULT_SEARCHES=[
